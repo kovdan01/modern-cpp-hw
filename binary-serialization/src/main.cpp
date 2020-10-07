@@ -1,49 +1,59 @@
 #include "message.hpp"
+#include "cbor_wrapper.hpp"
 
 #include <msgpack.hpp>
+#include <cbor.h>
+#include <bson.h>
+#include <benchmark/benchmark.h>
 
-#include <vector>
-#include <iostream>
-#include <cassert>
+#include "test_input.inc"
 
-template <typename T>
-void print_vector(const std::vector<T>& t_vec)
+namespace bm = benchmark;
+
+static void pack_msgpack(bm::State& state)
 {
-    for (const T& elem : t_vec)
-        std::cout << elem << '\n';
+    for (auto _ : state)
+    {
+        msgpack::sbuffer packed;
+        msgpack::pack(packed, msg);
+        bm::DoNotOptimize(packed);
+    }
 }
+BENCHMARK(pack_msgpack);
 
-std::vector<hw1::Message> get_messages()
+static void pack_cbor(bm::State& state)
 {
-    std::vector<hw1::Message> messages;
-    messages.emplace_back(1, 2, std::string{"Hello"}, std::vector<hw1::Attachment>{});
-    messages.emplace_back(1, 2, std::string{", world!"}, std::vector<hw1::Attachment>{std::vector<hw1::byte_t>{0x00, 0x01, 0x02}, std::vector<hw1::byte_t>{0x5f, 0x60, 0x61}});
-
-    return messages;
+    for (auto _ : state)
+    {
+        hw1::CborBuffer packed = msg.cbor_pack();
+        bm::DoNotOptimize(packed);
+    }
 }
+BENCHMARK(pack_cbor);
 
-msgpack::sbuffer pack_messages(const std::vector<hw1::Message>& t_messages)
+static void unpack_msgpack(bm::State& state)
 {
-    msgpack::sbuffer sbuf;
-    msgpack::pack(sbuf, t_messages);
-    return sbuf;
+    msgpack::sbuffer packed;
+    msgpack::pack(packed, msg);
+    for (auto _ : state)
+    {
+        msgpack::object_handle oh = msgpack::unpack(packed.data(), packed.size());
+        hw1::Message unpacked;
+        oh.get().convert(unpacked);
+        bm::DoNotOptimize(unpacked);
+    }
 }
+BENCHMARK(unpack_msgpack);
 
-std::vector<hw1::Message> unpack_messages(const msgpack::sbuffer& t_sbuf)
+static void unpack_cbor(bm::State& state)
 {
-    msgpack::object_handle oh = msgpack::unpack(t_sbuf.data(), t_sbuf.size());
-    msgpack::object obj = oh.get();
-
-    std::vector<hw1::Message> messages;
-    obj.convert(messages);
-
-    return messages;
+    static const hw1::CborBuffer packed = msg.cbor_pack();
+    for (auto _ : state)
+    {
+        hw1::Message unpacked = hw1::cbor_unpack_message(packed);
+        bm::DoNotOptimize(unpacked);
+    }
 }
+BENCHMARK(unpack_cbor);
 
-int main()
-{
-    std::vector<hw1::Message> msg_before = get_messages();
-    msgpack::sbuffer packed = pack_messages(msg_before);
-    std::vector<hw1::Message> msg_after = unpack_messages(packed);
-    assert(msg_before == msg_after);
-}
+BENCHMARK_MAIN();

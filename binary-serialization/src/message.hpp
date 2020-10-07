@@ -1,6 +1,9 @@
 #ifndef MESSAGE_HPP
 #define MESSAGE_HPP
 
+#include "types.hpp"
+#include "cbor_wrapper.hpp"
+
 #include <msgpack.hpp>
 
 #include <cstdint>
@@ -10,11 +13,6 @@
 
 namespace hw1
 {
-
-using byte_t = std::uint8_t;
-
-using user_id_t = std::uint64_t;
-inline constexpr user_id_t INVALID_USER_ID = user_id_t(-1);
 
 class Attachment
 {
@@ -39,6 +37,8 @@ public:
 };
 
 std::ostream& operator<<(std::ostream& output, const Attachment& attachment);
+
+class CborBuffer;
 
 class Message
 {
@@ -67,6 +67,7 @@ private:
 
 public:
     MSGPACK_DEFINE(m_from, m_to, m_text, m_attachments)
+    CborBuffer cbor_pack() const;
 };
 
 std::ostream& operator<<(std::ostream& output, const Message& message);

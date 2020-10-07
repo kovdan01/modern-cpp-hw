@@ -57,6 +57,32 @@ user_id_t Message::to() const
     return m_to;
 }
 
+CborBuffer Message::cbor_pack() const
+{
+    CborItem root = cbor_new_definite_array(4);
+
+    CborItem from = cbor_build_uint64(m_from);
+    CborItem to   = cbor_build_uint64(m_to);
+    CborItem text = cbor_build_stringn(m_text.c_str(), m_text.size());
+
+    CborItem attachments = cbor_new_definite_array(m_attachments.size());
+    std::vector<CborItem> attachments_wrapper;
+    attachments_wrapper.reserve(m_attachments.size());
+    for (const Attachment& attachment : m_attachments)
+    {
+        attachments_wrapper.emplace_back(cbor_build_bytestring(attachment.buffer().data(), attachment.buffer().size()));
+        cbor_array_push(attachments, attachments_wrapper.back());
+    }
+
+    cbor_array_push(root, from);
+    cbor_array_push(root, to);
+    cbor_array_push(root, text);
+    cbor_array_push(root, attachments);
+
+    CborBuffer cbor_buf(root);
+    return cbor_buf;
+}
+
 std::ostream& operator<<(std::ostream& t_output, const Message& t_message)
 {
     t_output << t_message.from() << ", "

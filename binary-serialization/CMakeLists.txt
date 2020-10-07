@@ -10,10 +10,18 @@ project(${NAMESPACE}-${COMPONENT}
 find_package(ntc-cmake REQUIRED)
 include(ntc-dev-build)
 
+find_package(mongoc-1.0 REQUIRED)
+
+find_package(benchmark REQUIRED)
+
 add_executable(${PROJECT_NAME}
+    src/cbor_wrapper.hpp
+    src/cbor_wrapper.cpp
     src/main.cpp
     src/message.hpp
     src/message.cpp
+    src/test_input.inc
+    src/types.hpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
@@ -23,4 +31,7 @@ set(THIRD_PARTY_DIR ${CMAKE_CURRENT_LIST_DIR}/3rd_party)
 ntc_target(${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${THIRD_PARTY_DIR}/msgpack/include)
-set(MSGPACK_CXX17 on)
+target_link_libraries(${PROJECT_NAME} PRIVATE cbor)
+target_link_libraries(${PROJECT_NAME} PRIVATE mongo::bson_shared)
+target_link_libraries(${PROJECT_NAME} PRIVATE benchmark)
+target_link_libraries(${PROJECT_NAME} PRIVATE pthread)
