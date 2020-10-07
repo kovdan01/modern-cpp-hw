@@ -14,6 +14,9 @@ find_package(mongoc-1.0 REQUIRED)
 
 find_package(benchmark REQUIRED)
 
+set(THREADS_PREFER_PTHERAD_FLAG ON)
+find_package(Threads)
+
 add_executable(${PROJECT_NAME}
     src/cbor_wrapper.hpp
     src/cbor_wrapper.cpp
@@ -33,5 +36,5 @@ ntc_target(${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE ${THIRD_PARTY_DIR}/msgpack/include)
 target_link_libraries(${PROJECT_NAME} PRIVATE cbor)
 target_link_libraries(${PROJECT_NAME} PRIVATE mongo::bson_shared)
-target_link_libraries(${PROJECT_NAME} PRIVATE benchmark)
-target_link_libraries(${PROJECT_NAME} PRIVATE pthread)
+target_link_libraries(${PROJECT_NAME} PRIVATE benchmark::benchmark)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
