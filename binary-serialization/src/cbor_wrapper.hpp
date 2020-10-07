@@ -55,6 +55,8 @@ private:
     void dtor_impl();
 };
 
+class Message;
+
 Message cbor_unpack_message(const CborBuffer& t_buffer);
 
 }  // namespace hw1
