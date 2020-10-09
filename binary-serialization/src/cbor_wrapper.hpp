@@ -2,7 +2,6 @@
 #define CBOR_WRAPPER_HPP
 
 #include "types.hpp"
-#include "message.hpp"
 
 #include <cbor.h>
 
@@ -12,52 +11,74 @@
 namespace hw1
 {
 
-class CborItem
+namespace cbor
+{
+
+class Buffer
 {
 public:
-    CborItem(cbor_item_t* item);
-    CborItem(const CborItem&);
-    CborItem& operator=(const CborItem&);
-    CborItem(CborItem&&);
-    CborItem& operator=(CborItem&&);
+    Buffer() = default;
+    Buffer(const Buffer&);
+    Buffer& operator=(const Buffer&);
+    Buffer(Buffer&&) noexcept;
+    Buffer& operator=(Buffer&&) noexcept;
+    ~Buffer();
 
-    ~CborItem();
+    Buffer(const cbor_item_t* item);
 
-    operator cbor_item_t*() const;
+    [[nodiscard]] std::size_t size() const;
+    [[nodiscard]] cbor_data data() const;
+    cbor_mutable_data data();
 
 private:
-    void dtor_impl();
-
-    cbor_item_t* m_item = nullptr;
-};
-
-class CborBuffer
-{
-public:
-    CborBuffer() = default;
-    CborBuffer(const CborBuffer&);
-    CborBuffer& operator=(const CborBuffer&);
-    CborBuffer(CborBuffer&&);
-    CborBuffer& operator=(CborBuffer&&);
-    ~CborBuffer();
-
-    CborBuffer(const cbor_item_t* item);
-
-    std::size_t size() const;
-    cbor_data buffer() const;
-
-protected:
     std::size_t m_size = 0;
     std::size_t m_capacity = 0;
     cbor_mutable_data m_buffer = nullptr;
 
-private:
     void dtor_impl();
 };
 
-class Message;
+class Item
+{
+public:
+    explicit Item(cbor_item_t* item);
+    Item(const Buffer& buffer);
+    Item(const Item&);
+    Item& operator=(const Item&);
+    Item(Item&&) noexcept;
+    Item& operator=(Item&&) noexcept;
 
-Message cbor_unpack_message(const CborBuffer& t_buffer);
+    ~Item();
+
+    operator const cbor_item_t*() const;
+    operator cbor_item_t*();
+
+private:
+    cbor_item_t* m_item = nullptr;
+
+    void dtor_impl();
+};
+
+Item build_uint8(std::uint8_t value);
+Item build_uint16(std::uint16_t value);
+Item build_uint32(std::uint32_t value);
+Item build_uint64(std::uint64_t value);
+Item build_negint8(std::uint8_t value);
+Item build_negint16(std::uint16_t value);
+Item build_negint32(std::uint32_t value);
+Item build_negint64(std::uint64_t value);
+
+Item new_definite_array(std::size_t size);
+Item new_indefinite_array();
+
+Item build_string(const std::string& str);
+Item build_string(std::string_view str);
+Item build_string(const char* val);
+Item build_string(const char* val, std::size_t length);
+
+Item build_bytestring(cbor_data handle, std::size_t length);
+
+}  // namespace cbor
 
 }  // namespace hw1
 

@@ -27,7 +27,7 @@ public:
 
     bool operator==(const Attachment&) const = default;
 
-    const std::vector<byte_t>& buffer() const;
+    [[nodiscard]] const std::vector<byte_t>& buffer() const;
 
 private:
     std::vector<byte_t> m_buffer;
@@ -37,8 +37,6 @@ public:
 };
 
 std::ostream& operator<<(std::ostream& output, const Attachment& attachment);
-
-class CborBuffer;
 
 class Message
 {
@@ -52,12 +50,17 @@ public:
     Message(user_id_t from, user_id_t to, std::string text,
             std::vector<Attachment> attachments);
 
+    explicit Message(const cbor::Item& item);
+    explicit Message(const cbor::Buffer& buffer);
+    explicit Message(const msgpack::object_handle& oh);
+    explicit Message(const msgpack::sbuffer& sbuf);
+
     bool operator==(const Message&) const = default;
 
-    const std::vector<Attachment>& attachments() const;
-    const std::string& text() const;
-    user_id_t from() const;
-    user_id_t to() const;
+    [[nodiscard]] const std::vector<Attachment>& attachments() const;
+    [[nodiscard]] const std::string& text() const;
+    [[nodiscard]] user_id_t from() const;
+    [[nodiscard]] user_id_t to() const;
 
 private:
     std::vector<Attachment> m_attachments;
@@ -67,7 +70,12 @@ private:
 
 public:
     MSGPACK_DEFINE(m_from, m_to, m_text, m_attachments)
-    CborBuffer cbor_pack() const;
+
+    [[nodiscard]] msgpack::object_handle to_msgpack_dom() const;
+    [[nodiscard]] msgpack::sbuffer to_msgpack_buffer() const;
+
+    [[nodiscard]] cbor::Item to_cbor_dom() const;
+    [[nodiscard]] cbor::Buffer to_cbor_buffer() const;
 };
 
 std::ostream& operator<<(std::ostream& output, const Message& message);

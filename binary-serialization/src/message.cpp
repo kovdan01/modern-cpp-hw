@@ -30,10 +30,59 @@ std::ostream& operator<<(std::ostream& t_output, const Attachment& t_attachment)
 
 Message::Message(user_id_t t_from, user_id_t t_to, std::string t_text,
                  std::vector<Attachment> t_attachments)
-    : m_attachments(t_attachments)
-    , m_text(t_text)
+    : m_attachments(std::move(t_attachments))
+    , m_text(std::move(t_text))
     , m_from(t_from)
     , m_to(t_to)
+{
+}
+
+Message::Message(const cbor::Item& t_item)
+{
+    assert(cbor_isa_array(t_item));
+    assert(cbor_array_size(t_item) == 4);
+
+    cbor_item_t** item_handle = cbor_array_handle(t_item);
+
+    assert(cbor_isa_uint(item_handle[0]));
+    assert(cbor_isa_uint(item_handle[1]));
+    assert(cbor_isa_string(item_handle[2]));
+    assert(cbor_isa_array(item_handle[3]));
+
+    m_from = cbor_get_uint64(item_handle[0]);
+    m_to   = cbor_get_uint64(item_handle[1]);
+
+    cbor_item_t* text_handle = item_handle[2];
+    m_text = std::string(reinterpret_cast<char*>(cbor_string_handle(text_handle)), cbor_string_length(text_handle));
+
+    cbor_item_t* attachments_array = item_handle[3];
+    std::size_t num_of_attachments = cbor_array_size(attachments_array);
+    cbor_item_t** attachments_handle = cbor_array_handle(attachments_array);
+
+    m_attachments.reserve(num_of_attachments);
+
+    for (std::size_t i = 0; i < num_of_attachments; ++i)
+    {
+        cbor_item_t* current = attachments_handle[i];
+        assert(cbor_isa_bytestring(current));
+        const hw1::byte_t* begin = cbor_bytestring_handle(current);
+        const hw1::byte_t* end = begin + cbor_bytestring_length(current);
+        m_attachments.emplace_back(std::vector<hw1::byte_t>(begin, end));
+    }
+}
+
+Message::Message(const cbor::Buffer& t_buffer)
+    : Message(cbor::Item(t_buffer))
+{
+}
+
+Message::Message(const msgpack::object_handle& t_oh)
+{
+    *this = t_oh.get().convert();
+}
+
+Message::Message(const msgpack::sbuffer& t_sbuf)
+    : Message(msgpack::unpack(t_sbuf.data(), t_sbuf.size()))
 {
 }
 
@@ -57,30 +106,44 @@ user_id_t Message::to() const
     return m_to;
 }
 
-CborBuffer Message::cbor_pack() const
+msgpack::object_handle Message::to_msgpack_dom() const
 {
-    CborItem root = cbor_new_definite_array(4);
+    msgpack::sbuffer sbuf;
+    msgpack::pack(sbuf, *this);
+    return msgpack::unpack(sbuf.data(), sbuf.size());
+}
 
-    CborItem from = cbor_build_uint64(m_from);
-    CborItem to   = cbor_build_uint64(m_to);
-    CborItem text = cbor_build_stringn(m_text.c_str(), m_text.size());
+msgpack::sbuffer Message::to_msgpack_buffer() const
+{
+    msgpack::sbuffer sbuf;
+    msgpack::pack(sbuf, *this);
+    return sbuf;
+}
 
-    CborItem attachments = cbor_new_definite_array(m_attachments.size());
-    std::vector<CborItem> attachments_wrapper;
-    attachments_wrapper.reserve(m_attachments.size());
+cbor::Item Message::to_cbor_dom() const
+{
+    cbor::Item root = cbor::new_definite_array(4);
+
+    cbor::Item from = cbor::build_uint64(m_from);
+    cbor::Item to   = cbor::build_uint64(m_to);
+    cbor::Item text = cbor::build_string(m_text);
+
+    cbor::Item attachments = cbor::new_definite_array(m_attachments.size());
+    std::vector<cbor::Item> attachments_wrapper;
     for (const Attachment& attachment : m_attachments)
-    {
-        attachments_wrapper.emplace_back(cbor_build_bytestring(attachment.buffer().data(), attachment.buffer().size()));
-        cbor_array_push(attachments, attachments_wrapper.back());
-    }
+        cbor_array_push(attachments, cbor::build_bytestring(attachment.buffer().data(), attachment.buffer().size()));
 
     cbor_array_push(root, from);
     cbor_array_push(root, to);
     cbor_array_push(root, text);
     cbor_array_push(root, attachments);
 
-    CborBuffer cbor_buf(root);
-    return cbor_buf;
+    return root;
+}
+
+cbor::Buffer Message::to_cbor_buffer() const
+{
+    return cbor::Buffer(to_cbor_dom());
 }
 
 std::ostream& operator<<(std::ostream& t_output, const Message& t_message)
