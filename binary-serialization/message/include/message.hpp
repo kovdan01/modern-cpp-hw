@@ -1,15 +1,15 @@
 #ifndef BINARY_SERIALIZATION_MESSAGE_HPP_
 #define BINARY_SERIALIZATION_MESSAGE_HPP_
 
-#include "types.hpp"
-#include "cbor_wrapper.hpp"
+#include <cbor_wrapper.hpp>
+#include <types.hpp>
 
 #include <msgpack.hpp>
 
 #include <cstdint>
-#include <vector>
-#include <string>
 #include <ostream>
+#include <string>
+#include <vector>
 
 namespace hw1
 {
@@ -23,7 +23,7 @@ public:
     Attachment(Attachment&&) = default;
     Attachment& operator=(Attachment&&) = default;
 
-    Attachment(std::vector<byte_t> buffer);
+    explicit Attachment(std::vector<byte_t> buffer);
 
     bool operator==(const Attachment&) const = default;
 
@@ -79,6 +79,36 @@ public:
 };
 
 std::ostream& operator<<(std::ostream& output, const Message& message);
+
+class MessageVector
+{
+public:
+    MessageVector() = default;
+    MessageVector(const MessageVector&) = default;
+    MessageVector& operator=(const MessageVector&) = default;
+    MessageVector(MessageVector&&) noexcept = default;
+    MessageVector& operator=(MessageVector&&) noexcept = default;
+
+    explicit MessageVector(std::vector<Message> messages);
+
+    explicit MessageVector(const cbor::Item& item);
+    explicit MessageVector(const cbor::Buffer& buffer);
+    explicit MessageVector(const msgpack::object_handle& oh);
+    explicit MessageVector(const msgpack::sbuffer& sbuf);
+
+    bool operator==(const MessageVector&) const = default;
+
+    [[nodiscard]] const std::vector<Message>& messages() const;
+
+    [[nodiscard]] msgpack::object_handle to_msgpack_dom() const;
+    [[nodiscard]] msgpack::sbuffer to_msgpack_buffer() const;
+
+    [[nodiscard]] cbor::Item to_cbor_dom() const;
+    [[nodiscard]] cbor::Buffer to_cbor_buffer() const;
+
+private:
+    std::vector<Message> m_messages;
+};
 
 }  // namespace hw1
 

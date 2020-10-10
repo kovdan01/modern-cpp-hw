@@ -1,8 +1,6 @@
 #ifndef BINARY_SERIALIZATION_CBOR_WRAPPER_HPP_
 #define BINARY_SERIALIZATION_CBOR_WRAPPER_HPP_
 
-#include "types.hpp"
-
 #include <cbor.h>
 
 #include <string>

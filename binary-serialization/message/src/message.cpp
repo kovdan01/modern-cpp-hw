@@ -1,7 +1,7 @@
 #include "message.hpp"
 
-#include <utility>
 #include <iomanip>
+#include <utility>
 
 namespace hw1
 {
@@ -156,6 +156,66 @@ std::ostream& operator<<(std::ostream& t_output, const Message& t_message)
     t_output << "}\n";
 
     return t_output;
+}
+
+MessageVector::MessageVector(std::vector<Message> t_messages)
+    : m_messages(std::move(t_messages))
+{
+}
+
+MessageVector::MessageVector(const cbor::Item& t_item)
+{
+    assert(cbor_isa_array(t_item));
+
+    cbor_item_t** item_handle = cbor_array_handle(t_item);
+    std::size_t message_count = cbor_array_size(t_item);
+    m_messages.reserve(message_count);
+    for (std::size_t i = 0; i < message_count; ++i)
+        m_messages.emplace_back(Message(item_handle[i]));
+}
+
+MessageVector::MessageVector(const cbor::Buffer& t_buffer)
+    : MessageVector(cbor::Item(t_buffer))
+{
+}
+
+MessageVector::MessageVector(const msgpack::object_handle& t_oh)
+{
+    t_oh.get().convert(m_messages);
+}
+
+MessageVector::MessageVector(const msgpack::sbuffer& t_sbuf)
+    : MessageVector(msgpack::unpack(t_sbuf.data(), t_sbuf.size()))
+{
+}
+
+msgpack::object_handle MessageVector::to_msgpack_dom() const
+{
+    msgpack::sbuffer sbuf;
+    msgpack::pack(sbuf, m_messages);
+    return msgpack::unpack(sbuf.data(), sbuf.size());
+}
+
+msgpack::sbuffer MessageVector::to_msgpack_buffer() const
+{
+    msgpack::sbuffer sbuf;
+    msgpack::pack(sbuf, m_messages);
+    return sbuf;
+}
+
+cbor::Item MessageVector::to_cbor_dom() const
+{
+    cbor::Item root = cbor::new_definite_array(m_messages.size());
+
+    for (const Message& message : m_messages)
+        cbor_array_push(root, message.to_cbor_dom());
+
+    return root;
+}
+
+cbor::Buffer MessageVector::to_cbor_buffer() const
+{
+    return cbor::Buffer(to_cbor_dom());
 }
 
 }  // namespace hw1

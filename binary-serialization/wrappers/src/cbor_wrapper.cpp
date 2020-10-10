@@ -1,12 +1,11 @@
 #include "cbor_wrapper.hpp"
-#include "types.hpp"
 
-#include <string>
-#include <cstring>
-#include <cstdlib>
-#include <utility>
-#include <stdexcept>
 #include <cassert>
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
 namespace hw1
 {
@@ -89,7 +88,7 @@ Item::operator cbor_item_t*()
 Buffer::Buffer(const Buffer& t_other)
     : m_size(t_other.m_size)
     , m_capacity(m_size)
-    , m_buffer(reinterpret_cast<byte_t*>(std::malloc(m_size)))
+    , m_buffer(reinterpret_cast<cbor_mutable_data>(std::malloc(m_size)))
 {
     std::memcpy(m_buffer, t_other.m_buffer, m_size);
 }
@@ -101,7 +100,7 @@ Buffer& Buffer::operator=(const Buffer& t_other)
 
     m_size = t_other.m_size;
     m_capacity = m_size;
-    m_buffer = reinterpret_cast<byte_t*>(std::malloc(m_size));
+    m_buffer = reinterpret_cast<cbor_mutable_data>(std::malloc(m_size));
     std::memcpy(m_buffer, t_other.m_buffer, m_size);
 
     return *this;
