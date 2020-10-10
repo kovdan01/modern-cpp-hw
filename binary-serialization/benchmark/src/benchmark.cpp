@@ -9,13 +9,13 @@
 #include <iostream>
 #include <vector>
 
-static hw1::MessageVector messages;
+static hw1::MessageVector g_messages;
 
 namespace bm = benchmark;
 
 static void msgpack_dom_to_serialized(bm::State& state)
 {
-    msgpack::object_handle dom = messages.to_msgpack_dom();
+    msgpack::object_handle dom = g_messages.to_msgpack_dom();
     for (auto _ : state)
     {
         msgpack::sbuffer packed;
@@ -27,7 +27,7 @@ BENCHMARK(msgpack_dom_to_serialized);
 
 static void msgpack_serialized_to_dom(bm::State& state)
 {
-    msgpack::sbuffer packed = messages.to_msgpack_buffer();
+    msgpack::sbuffer packed = g_messages.to_msgpack_buffer();
     for (auto _ : state)
     {
         msgpack::object_handle dom = msgpack::unpack(packed.data(), packed.size());
@@ -41,7 +41,7 @@ static void msgpack_object_to_serialized(bm::State& state)
     for (auto _ : state)
     {
         msgpack::sbuffer packed;
-        msgpack::pack(packed, messages.messages());
+        msgpack::pack(packed, g_messages.messages());
         bm::DoNotOptimize(packed);
     }
 }
@@ -49,7 +49,7 @@ BENCHMARK(msgpack_object_to_serialized);
 
 static void msgpack_serialized_to_object(bm::State& state)
 {
-    msgpack::sbuffer packed = messages.to_msgpack_buffer();
+    msgpack::sbuffer packed = g_messages.to_msgpack_buffer();
     for (auto _ : state)
     {
         hw1::MessageVector unpacked(packed);
@@ -60,7 +60,7 @@ BENCHMARK(msgpack_serialized_to_object);
 
 static void cbor_dom_to_serialized(bm::State& state)
 {
-    hw1::cbor::Item dom = messages.to_cbor_dom();
+    hw1::cbor::Item dom = g_messages.to_cbor_dom();
     for (auto _ : state)
     {
         hw1::cbor::Buffer packed(dom);
@@ -71,7 +71,7 @@ BENCHMARK(cbor_dom_to_serialized);
 
 static void cbor_serialized_to_dom(bm::State& state)
 {
-    hw1::cbor::Buffer packed = messages.to_cbor_buffer();
+    hw1::cbor::Buffer packed = g_messages.to_cbor_buffer();
     for (auto _ : state)
     {
         hw1::cbor::Item dom(packed);
@@ -84,7 +84,7 @@ static void cbor_object_to_serialized(bm::State& state)
 {
     for (auto _ : state)
     {
-        hw1::cbor::Buffer packed = messages.to_cbor_buffer();
+        hw1::cbor::Buffer packed = g_messages.to_cbor_buffer();
         bm::DoNotOptimize(packed);
     }
 }
@@ -92,7 +92,7 @@ BENCHMARK(cbor_object_to_serialized);
 
 static void cbor_serialized_to_object(bm::State& state)
 {
-    hw1::cbor::Buffer packed = messages.to_cbor_buffer();
+    hw1::cbor::Buffer packed = g_messages.to_cbor_buffer();
     for (auto _ : state)
     {
         hw1::MessageVector unpacked(packed);
@@ -104,7 +104,7 @@ BENCHMARK(cbor_serialized_to_object);
 static void test()
 {
     std::cout << "Performing tests...\n";
-    const hw1::MessageVector& expected = messages;
+    const hw1::MessageVector& expected = g_messages;
     {
         msgpack::sbuffer sbuf = expected.to_msgpack_buffer();
         hw1::MessageVector got(sbuf);
@@ -185,7 +185,7 @@ int main(int argc, char** argv) try
     msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
     std::cout << "Deserialize complete!\n"
               << "Converting from DOM to std::vector<hw1::Message>..." << std::endl;
-    messages = hw1::MessageVector(oh);
+    g_messages = hw1::MessageVector(oh);
     std::cout << "Convert complete!" << std::endl;
 
 #ifndef NDEBUG
