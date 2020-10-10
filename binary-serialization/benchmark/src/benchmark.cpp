@@ -9,8 +9,6 @@
 #include <iostream>
 #include <vector>
 
-//#include "test_input.inc"
-
 static hw1::MessageVector messages;
 
 namespace bm = benchmark;
