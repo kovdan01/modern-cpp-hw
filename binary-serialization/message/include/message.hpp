@@ -1,8 +1,8 @@
 #ifndef BINARY_SERIALIZATION_MESSAGE_HPP_
 #define BINARY_SERIALIZATION_MESSAGE_HPP_
 
+#include "types.hpp"
 #include <cbor_wrapper.hpp>
-#include <types.hpp>
 
 #include <msgpack.hpp>
 

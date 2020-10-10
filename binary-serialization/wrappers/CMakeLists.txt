@@ -25,6 +25,5 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::cbor)
 target_link_libraries(${PROJECT_NAME} PRIVATE mongo::bson_shared)
-target_include_directories(${PROJECT_NAME} PRIVATE ${HW1_SHARED_INCLUDE_DIR})
 
 ntc_target(${PROJECT_NAME})

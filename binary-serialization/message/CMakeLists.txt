@@ -23,6 +23,5 @@ add_library(${PROJECT_NAME}
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC hw1::wrappers)
-target_include_directories(${PROJECT_NAME} PUBLIC ${HW1_SHARED_INCLUDE_DIR})
 
 ntc_target(${PROJECT_NAME})
