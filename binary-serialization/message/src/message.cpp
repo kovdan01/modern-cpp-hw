@@ -189,6 +189,11 @@ MessageVector::MessageVector(const msgpack::sbuffer& t_sbuf)
 {
 }
 
+const std::vector<Message>& MessageVector::messages() const
+{
+    return m_messages;
+}
+
 msgpack::object_handle MessageVector::to_msgpack_dom() const
 {
     msgpack::sbuffer sbuf;
