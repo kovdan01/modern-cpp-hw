@@ -50,8 +50,8 @@ static hw1::Message generate_message(std::size_t t_text_from, std::size_t t_text
                                      std::size_t t_attach_count_from, std::size_t t_attach_count_to,
                                      std::size_t t_attach_size_from, std::size_t t_attach_size_to)
 {
-    std::uniform_int_distribution<hw1::user_id_t> user_id_dist(std::numeric_limits<hw1::user_id_t>::min(),
-                                                               std::numeric_limits<hw1::user_id_t>::max());
+    static std::uniform_int_distribution<hw1::user_id_t> user_id_dist(std::numeric_limits<hw1::user_id_t>::min(),
+                                                                      std::numeric_limits<hw1::user_id_t>::max());
     hw1::user_id_t from = user_id_dist(g_prng);
     hw1::user_id_t to   = user_id_dist(g_prng);
 
@@ -59,7 +59,7 @@ static hw1::Message generate_message(std::size_t t_text_from, std::size_t t_text
 
     // some magic constants here
 
-    std::gamma_distribution<double> attach_count_dist(1, 1);
+    static std::gamma_distribution<double> attach_count_dist(1, 1);
     std::size_t attach_count;
     double magic_constant = static_cast<double>(t_attach_count_to) / 10;
     do
@@ -70,7 +70,7 @@ static hw1::Message generate_message(std::size_t t_text_from, std::size_t t_text
     std::vector<hw1::Attachment> attachments;
     attachments.reserve(attach_count);
 
-    std::gamma_distribution<double> attach_size_dist(1.5, 1.2);
+    static std::gamma_distribution<double> attach_size_dist(1.5, 1.2);
     for (std::size_t i = 0; i < attach_count; ++i)
     {
         std::size_t attach_size;
@@ -135,14 +135,14 @@ int main(int argc, char* argv[]) try
         return 1;
     }
 
-    std::string out_file_name     = vm["output"]   .as<std::string>();
-    std::size_t msg_count         = vm["count"]    .as<std::size_t>();
-    std::size_t text_from         = vm["text_from"].as<std::size_t>();
-    std::size_t text_to           = vm["text_to"]  .as<std::size_t>();
-    std::size_t attach_count_from = vm["text_from"].as<std::size_t>();
-    std::size_t attach_count_to   = vm["text_to"]  .as<std::size_t>();
-    std::size_t attach_size_from  = vm["text_from"].as<std::size_t>();
-    std::size_t attach_size_to    = vm["text_to"]  .as<std::size_t>();
+    std::string out_file_name     = vm["output"]           .as<std::string>();
+    std::size_t msg_count         = vm["count"]            .as<std::size_t>();
+    std::size_t text_from         = vm["text_from"]        .as<std::size_t>();
+    std::size_t text_to           = vm["text_to"]          .as<std::size_t>();
+    std::size_t attach_count_from = vm["attach_count_from"].as<std::size_t>();
+    std::size_t attach_count_to   = vm["attach_count_to"]  .as<std::size_t>();
+    std::size_t attach_size_from  = vm["attach_size_from"] .as<std::size_t>();
+    std::size_t attach_size_to    = vm["attach_size_to"]   .as<std::size_t>();
 
     std::vector<hw1::Message> messages = generate_vector_of_messages(msg_count, text_from, text_to, attach_count_from,
                                                                      attach_count_to, attach_size_from, attach_size_to);
