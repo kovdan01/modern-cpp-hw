@@ -1,5 +1,5 @@
-#ifndef CBOR_WRAPPER_HPP
-#define CBOR_WRAPPER_HPP
+#ifndef BINARY_SERIALIZATION_CBOR_WRAPPER_HPP_
+#define BINARY_SERIALIZATION_CBOR_WRAPPER_HPP_
 
 #include "types.hpp"
 
@@ -82,4 +82,4 @@ Item build_bytestring(cbor_data handle, std::size_t length);
 
 }  // namespace hw1
 
-#endif // CBOR_WRAPPER_HPP
+#endif // BINARY_SERIALIZATION_CBOR_WRAPPER_HPP_

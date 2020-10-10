@@ -1,5 +1,5 @@
-#ifndef TYPES_HPP
-#define TYPES_HPP
+#ifndef BINARY_SERIALIZATION_TYPES_HPP_
+#define BINARY_SERIALIZATION_TYPES_HPP_
 
 #include <cstdint>
 
@@ -13,4 +13,4 @@ inline constexpr user_id_t INVALID_USER_ID = user_id_t(-1);
 
 }  // namespace hw1
 
-#endif // TYPES_HPP
+#endif // BINARY_SERIALIZATION_TYPES_HPP_

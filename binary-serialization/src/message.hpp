@@ -1,5 +1,5 @@
-#ifndef MESSAGE_HPP
-#define MESSAGE_HPP
+#ifndef BINARY_SERIALIZATION_MESSAGE_HPP_
+#define BINARY_SERIALIZATION_MESSAGE_HPP_
 
 #include "types.hpp"
 #include "cbor_wrapper.hpp"
@@ -82,4 +82,4 @@ std::ostream& operator<<(std::ostream& output, const Message& message);
 
 }  // namespace hw1
 
-#endif // MESSAGE_HPP
+#endif // BINARY_SERIALIZATION_MESSAGE_HPP_
