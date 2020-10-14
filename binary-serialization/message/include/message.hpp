@@ -3,6 +3,7 @@
 
 #include "types.hpp"
 #include <cbor_wrapper.hpp>
+#include <hw1/message/export.h>
 
 #include <msgpack.hpp>
 
@@ -14,7 +15,7 @@
 namespace hw1
 {
 
-class Attachment
+class HW1_MESSAGE_EXPORT Attachment
 {
 public:
     Attachment() = default;
@@ -38,7 +39,7 @@ public:
 
 std::ostream& operator<<(std::ostream& output, const Attachment& attachment);
 
-class Message
+class HW1_MESSAGE_EXPORT Message
 {
 public:
     Message() = default;
@@ -80,7 +81,7 @@ public:
 
 std::ostream& operator<<(std::ostream& output, const Message& message);
 
-class MessageVector
+class HW1_MESSAGE_EXPORT MessageVector
 {
 public:
     MessageVector() = default;

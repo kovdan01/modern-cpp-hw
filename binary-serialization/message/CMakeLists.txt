@@ -24,4 +24,4 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC hw1::wrappers)
 
-ntc_target(${PROJECT_NAME})
+ntc_target(${PROJECT_NAME} message/)
