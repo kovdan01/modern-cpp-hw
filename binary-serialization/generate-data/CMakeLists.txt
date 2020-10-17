@@ -19,7 +19,7 @@ find_package(Boost COMPONENTS COMPONENTS program_options REQUIRED)
 # message pack - header-only, no find_package needed
 
 add_executable(${PROJECT_NAME}
-    src/generate_data.cpp
+    src/main.cpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)

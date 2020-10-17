@@ -26,7 +26,7 @@ set(THREADS_PREFER_PTHERAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 add_executable(${PROJECT_NAME}
-    src/benchmark.cpp
+    src/main.cpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
