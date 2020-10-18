@@ -144,6 +144,13 @@ int main(int argc, char* argv[]) try
     std::size_t attach_size_from  = vm["attach_size_from"] .as<std::size_t>();
     std::size_t attach_size_to    = vm["attach_size_to"]   .as<std::size_t>();
 
+    if (text_from > text_to)
+        throw std::runtime_error("Error: text_from must be less or equal than text_to");
+    if (attach_count_from > attach_count_to)
+        throw std::runtime_error("Error: attach_count_from must be less or equal than attach_count_to");
+    if (attach_size_from > attach_size_to)
+        throw std::runtime_error("Error: attach_size_from must be less or equal than attach_size_to");
+
     std::vector<hw1::Message> messages = generate_vector_of_messages(msg_count, text_from, text_to, attach_count_from,
                                                                      attach_count_to, attach_size_from, attach_size_to);
 
