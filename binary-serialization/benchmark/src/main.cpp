@@ -17,112 +17,112 @@ namespace bm = benchmark;
 static void msgpack_dom_to_serialized(bm::State& state)
 {
     msgpack::object_handle dom = g_messages.to_msgpack_dom();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         msgpack::sbuffer packed;
         msgpack::pack(packed, dom.get());
         bm::DoNotOptimize(packed);
     }
 }
-BENCHMARK(msgpack_dom_to_serialized);
+BENCHMARK(msgpack_dom_to_serialized);  // NOLINT cert-err58-cpp
 
 static void msgpack_serialized_to_dom(bm::State& state)
 {
     msgpack::sbuffer packed = g_messages.to_msgpack_buffer();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         msgpack::object_handle dom = msgpack::unpack(packed.data(), packed.size());
         bm::DoNotOptimize(dom);
     }
 }
-BENCHMARK(msgpack_serialized_to_dom);
+BENCHMARK(msgpack_serialized_to_dom);  // NOLINT cert-err58-cpp
 
 static void msgpack_object_to_serialized(bm::State& state)
 {
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         msgpack::sbuffer packed;
         msgpack::pack(packed, g_messages.messages());
         bm::DoNotOptimize(packed);
     }
 }
-BENCHMARK(msgpack_object_to_serialized);
+BENCHMARK(msgpack_object_to_serialized);  // NOLINT cert-err58-cpp
 
 static void msgpack_serialized_to_object(bm::State& state)
 {
     msgpack::sbuffer packed = g_messages.to_msgpack_buffer();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::MessageVector unpacked(packed);
         bm::DoNotOptimize(unpacked);
     }
 }
-BENCHMARK(msgpack_serialized_to_object);
+BENCHMARK(msgpack_serialized_to_object);  // NOLINT cert-err58-cpp
 
 static void cbor_dom_to_serialized(bm::State& state)
 {
     hw1::cbor::Item dom = g_messages.to_cbor_dom();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::cbor::Buffer packed(dom);
         bm::DoNotOptimize(packed);
     }
 }
-BENCHMARK(cbor_dom_to_serialized);
+BENCHMARK(cbor_dom_to_serialized);  // NOLINT cert-err58-cpp
 
 static void cbor_serialized_to_dom(bm::State& state)
 {
     hw1::cbor::Buffer packed = g_messages.to_cbor_buffer();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::cbor::Item dom(packed);
         bm::DoNotOptimize(dom);
     }
 }
-BENCHMARK(cbor_serialized_to_dom);
+BENCHMARK(cbor_serialized_to_dom);  // NOLINT cert-err58-cpp
 
 static void cbor_object_to_serialized(bm::State& state)
 {
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::cbor::Buffer packed = g_messages.to_cbor_buffer();
         bm::DoNotOptimize(packed);
     }
 }
-BENCHMARK(cbor_object_to_serialized);
+BENCHMARK(cbor_object_to_serialized);  // NOLINT cert-err58-cpp
 
 static void cbor_serialized_to_object(bm::State& state)
 {
     hw1::cbor::Buffer packed = g_messages.to_cbor_buffer();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::MessageVector unpacked(packed);
         bm::DoNotOptimize(unpacked);
     }
 }
-BENCHMARK(cbor_serialized_to_object);
+BENCHMARK(cbor_serialized_to_object);  // NOLINT cert-err58-cpp
 
 static void bson_object_to_serialized(bm::State& state)
 {
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::bson::Ptr packed = g_messages.to_bson_buffer();
         bm::DoNotOptimize(packed);
     }
 }
-BENCHMARK(bson_object_to_serialized);
+BENCHMARK(bson_object_to_serialized);  // NOLINT cert-err58-cpp
 
 static void bson_serialized_to_object(bm::State& state)
 {
     hw1::bson::Ptr packed = g_messages.to_bson_buffer();
-    for (auto _ : state)
+    for (auto _ : state)  // NOLINT clang-analyzer-deadcode.DeadStores
     {
         hw1::bson::Iter iter(packed->handle());
         hw1::MessageVector unpacked(iter);
         bm::DoNotOptimize(unpacked);
     }
 }
-BENCHMARK(bson_serialized_to_object);
+BENCHMARK(bson_serialized_to_object);  // NOLINT cert-err58-cpp
 
 static void test()
 {
@@ -132,7 +132,7 @@ static void test()
         std::cout << "C++ Object -> MsgPack buffer -> C++ Object... " << std::flush;
         msgpack::sbuffer sbuf = expected.to_msgpack_buffer();
         hw1::MessageVector got(sbuf);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     {
@@ -140,21 +140,21 @@ static void test()
         msgpack::sbuffer sbuf = expected.to_msgpack_buffer();
         msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
         hw1::MessageVector got(oh);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     {
         std::cout << "C++ Object -> MsgPack DOM -> C++ Object... " << std::flush;
         msgpack::object_handle oh = expected.to_msgpack_dom();
         hw1::MessageVector got(oh);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     {
         std::cout << "C++ Object -> Cbor buffer -> C++ Object... " << std::flush;
         hw1::cbor::Buffer buffer = expected.to_cbor_buffer();
         hw1::MessageVector got(buffer);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     {
@@ -162,14 +162,14 @@ static void test()
         hw1::cbor::Buffer buffer = expected.to_cbor_buffer();
         hw1::cbor::Item item(buffer);
         hw1::MessageVector got(item);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     {
         std::cout << "C++ Object -> Cbor DOM -> C++ Object... " << std::flush;
         hw1::cbor::Item item = expected.to_cbor_dom();
         hw1::MessageVector got(item);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     {
@@ -177,7 +177,7 @@ static void test()
         hw1::bson::Ptr buffer = expected.to_bson_buffer();
         hw1::bson::Iter iter(buffer->handle());
         hw1::MessageVector got(iter);
-        assert(expected == got);
+        assert(expected == got);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         std::cout << "OK" << std::endl;
     }
     std::cout << "Passed!\n";

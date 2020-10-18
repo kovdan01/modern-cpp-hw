@@ -94,7 +94,7 @@ void Item::array_push(cbor_item_t* t_item)
 Buffer::Buffer(const Buffer& t_other)
     : m_size(t_other.m_size)
     , m_capacity(m_size)
-    , m_buffer(reinterpret_cast<cbor_mutable_data>(std::malloc(m_size)))
+    , m_buffer(reinterpret_cast<cbor_mutable_data>(std::malloc(m_size)))  // NOLINT cppcoreguidelines-no-malloc
 {
     std::memcpy(m_buffer, t_other.m_buffer, m_size);
 }
@@ -106,7 +106,7 @@ Buffer& Buffer::operator=(const Buffer& t_other)
 
     m_size = t_other.m_size;
     m_capacity = m_size;
-    m_buffer = reinterpret_cast<cbor_mutable_data>(std::malloc(m_size));
+    m_buffer = reinterpret_cast<cbor_mutable_data>(std::malloc(m_size));  // NOLINT cppcoreguidelines-no-malloc
     std::memcpy(m_buffer, t_other.m_buffer, m_size);
 
     return *this;
@@ -163,7 +163,7 @@ Buffer::~Buffer()
 void Buffer::dtor_impl()
 {
     if (m_buffer != nullptr)
-        std::free(m_buffer);
+        std::free(m_buffer);  // NOLINT cppcoreguidelines-no-malloc
 }
 
 static void check_ptr(void* ptr)

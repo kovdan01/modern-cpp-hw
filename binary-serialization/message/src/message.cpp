@@ -39,15 +39,15 @@ Message::Message(user_id_t t_from, user_id_t t_to, std::string t_text,
 
 Message::Message(const cbor::Item& t_item)
 {
-    assert(cbor_isa_array(t_item));
-    assert(cbor_array_size(t_item) == 4);
+    assert(cbor_isa_array(t_item));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
+    assert(cbor_array_size(t_item) == 4);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
     cbor_item_t** item_handle = cbor_array_handle(t_item);
 
-    assert(cbor_isa_uint(item_handle[0]));
-    assert(cbor_isa_uint(item_handle[1]));
-    assert(cbor_isa_string(item_handle[2]));
-    assert(cbor_isa_array(item_handle[3]));
+    assert(cbor_isa_uint(item_handle[0]));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
+    assert(cbor_isa_uint(item_handle[1]));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
+    assert(cbor_isa_string(item_handle[2]));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
+    assert(cbor_isa_array(item_handle[3]));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
     m_from = cbor_get_uint64(item_handle[0]);
     m_to   = cbor_get_uint64(item_handle[1]);
@@ -64,7 +64,7 @@ Message::Message(const cbor::Item& t_item)
     for (std::size_t i = 0; i < num_of_attachments; ++i)
     {
         cbor_item_t* current = attachments_handle[i];
-        assert(cbor_isa_bytestring(current));
+        assert(cbor_isa_bytestring(current));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
         const hw1::byte_t* begin = cbor_bytestring_handle(current);
         const hw1::byte_t* end = begin + cbor_bytestring_length(current);
         m_attachments.emplace_back(std::vector<hw1::byte_t>(begin, end));
@@ -91,19 +91,19 @@ Message::Message(bson::Iter& t_iter)
     bool result;
 
     result = t_iter.next();
-    assert(result);
+    assert(result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     m_from = t_iter.as_uint64();
 
     result = t_iter.next();
-    assert(result);
+    assert(result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     m_to   = t_iter.as_uint64();
 
     result = t_iter.next();
-    assert(result);
+    assert(result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     m_text = t_iter.as_utf8();
 
     result = t_iter.next();
-    assert(result);
+    assert(result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     bson::Iter attachments_iter = t_iter.as_array();
     while (attachments_iter.next())
     {
@@ -112,7 +112,7 @@ Message::Message(bson::Iter& t_iter)
     }
 
     result = t_iter.next();
-    assert(!result);
+    assert(!result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 }
 
 const std::vector<Attachment>& Message::attachments() const
@@ -209,7 +209,7 @@ MessageVector::MessageVector(std::vector<Message> t_messages)
 
 MessageVector::MessageVector(const cbor::Item& t_item)
 {
-    assert(cbor_isa_array(t_item));
+    assert(cbor_isa_array(t_item));  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
     cbor_item_t** item_handle = cbor_array_handle(t_item);
     std::size_t message_count = cbor_array_size(t_item);
@@ -238,7 +238,7 @@ MessageVector::MessageVector(bson::Iter& t_iter)
     bool result;
 
     result = t_iter.next();
-    assert(result);
+    assert(result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     bson::Iter array = t_iter.as_array();
 
     while (array.next())
@@ -248,7 +248,7 @@ MessageVector::MessageVector(bson::Iter& t_iter)
     }
 
     result = t_iter.next();
-    assert(!result);
+    assert(!result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 }
 
 const std::vector<Message>& MessageVector::messages() const

@@ -156,19 +156,19 @@ bool Iter::is_array() const
 
 std::uint64_t Iter::as_uint64() const
 {
-    assert(is_uint64());
+    assert(is_uint64());  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     return detail::int64_to_uint64(as_int64());
 }
 
 std::int64_t Iter::as_int64() const
 {
-    assert(is_int64());
+    assert(is_int64());  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
     return bson_iter_as_int64(&m_iter);
 }
 
 std::span<const std::uint8_t> Iter::as_binary() const
 {
-    assert(is_binary());
+    assert(is_binary());  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
     const std::uint8_t* binary;
     std::uint32_t binary_len;
@@ -179,7 +179,7 @@ std::span<const std::uint8_t> Iter::as_binary() const
 
 std::string_view Iter::as_utf8() const
 {
-    assert(is_utf8());
+    assert(is_utf8());  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
     std::uint32_t length;
     const char* utf8 = bson_iter_utf8(&m_iter, &length);
@@ -189,7 +189,7 @@ std::string_view Iter::as_utf8() const
 
 Iter Iter::as_array() const
 {
-    assert(is_array());
+    assert(is_array());  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 
     Iter ans;
     bson_iter_recurse(&m_iter, &ans.m_iter);
