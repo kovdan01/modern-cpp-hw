@@ -1,3 +1,4 @@
+#include <bson_wrapper.hpp>
 #include <cbor_wrapper.hpp>
 #include <message.hpp>
 
@@ -101,41 +102,83 @@ static void cbor_serialized_to_object(bm::State& state)
 }
 BENCHMARK(cbor_serialized_to_object);
 
+static void bson_object_to_serialized(bm::State& state)
+{
+    for (auto _ : state)
+    {
+        hw1::bson::Ptr packed = g_messages.to_bson_buffer();
+        bm::DoNotOptimize(packed);
+    }
+}
+BENCHMARK(bson_object_to_serialized);
+
+static void bson_serialized_to_object(bm::State& state)
+{
+    hw1::bson::Ptr packed = g_messages.to_bson_buffer();
+    for (auto _ : state)
+    {
+        hw1::bson::Iter iter(packed->handle());
+        hw1::MessageVector unpacked(iter);
+        bm::DoNotOptimize(unpacked);
+    }
+}
+BENCHMARK(bson_serialized_to_object);
+
 static void test()
 {
-    std::cout << "Performing tests...\n";
+    std::cout << "Performing tests..." << std::endl;
     const hw1::MessageVector& expected = g_messages;
     {
+        std::cout << "C++ Object -> MsgPack buffer -> C++ Object... " << std::flush;
         msgpack::sbuffer sbuf = expected.to_msgpack_buffer();
         hw1::MessageVector got(sbuf);
         assert(expected == got);
+        std::cout << "OK" << std::endl;
     }
     {
+        std::cout << "C++ Object -> MsgPack buffer -> MsgPack DOM -> C++ Object... " << std::flush;
         msgpack::sbuffer sbuf = expected.to_msgpack_buffer();
         msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
         hw1::MessageVector got(oh);
         assert(expected == got);
+        std::cout << "OK" << std::endl;
     }
     {
+        std::cout << "C++ Object -> MsgPack DOM -> C++ Object... " << std::flush;
         msgpack::object_handle oh = expected.to_msgpack_dom();
         hw1::MessageVector got(oh);
         assert(expected == got);
+        std::cout << "OK" << std::endl;
     }
     {
+        std::cout << "C++ Object -> Cbor buffer -> C++ Object... " << std::flush;
         hw1::cbor::Buffer buffer = expected.to_cbor_buffer();
         hw1::MessageVector got(buffer);
         assert(expected == got);
+        std::cout << "OK" << std::endl;
     }
     {
+        std::cout << "C++ Object -> Cbor buffer -> Cbor DOM -> C++ Object... " << std::flush;
         hw1::cbor::Buffer buffer = expected.to_cbor_buffer();
         hw1::cbor::Item item(buffer);
         hw1::MessageVector got(item);
         assert(expected == got);
+        std::cout << "OK" << std::endl;
     }
     {
+        std::cout << "C++ Object -> Cbor DOM -> C++ Object... " << std::flush;
         hw1::cbor::Item item = expected.to_cbor_dom();
         hw1::MessageVector got(item);
         assert(expected == got);
+        std::cout << "OK" << std::endl;
+    }
+    {
+        std::cout << "C++ Object -> Bson buffer -> C++ Object... " << std::flush;
+        hw1::bson::Ptr buffer = expected.to_bson_buffer();
+        hw1::bson::Iter iter(buffer->handle());
+        hw1::MessageVector got(iter);
+        assert(expected == got);
+        std::cout << "OK" << std::endl;
     }
     std::cout << "Passed!\n";
 }
@@ -148,8 +191,9 @@ int main(int argc, char** argv) try
     namespace po = boost::program_options;
     po::options_description desc("Allowed options");
     desc.add_options()
-        ("help,H",                                              "Print this message")
-        ("input,I",     po::value<std::string>()->required(),   "Filename with test data")
+        ("help,H",                                                      "Print this message")
+        ("input,I",             po::value<std::string>()->required(),   "Filename with test data")
+        ("benchmark_filter",    po::value<std::string>(),               "Regex that specifies what benchmarks to run")
         ;
 
     po::variables_map vm;

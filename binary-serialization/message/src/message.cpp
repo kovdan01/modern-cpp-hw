@@ -86,6 +86,35 @@ Message::Message(const msgpack::sbuffer& t_sbuf)
 {
 }
 
+Message::Message(bson::Iter& t_iter)
+{
+    bool result;
+
+    result = t_iter.next();
+    assert(result);
+    m_from = t_iter.as_uint64();
+
+    result = t_iter.next();
+    assert(result);
+    m_to   = t_iter.as_uint64();
+
+    result = t_iter.next();
+    assert(result);
+    m_text = t_iter.as_utf8();
+
+    result = t_iter.next();
+    assert(result);
+    bson::Iter attachments_iter = t_iter.as_array();
+    while (attachments_iter.next())
+    {
+        std::span<const std::uint8_t> binary = attachments_iter.as_binary();
+        m_attachments.emplace_back(std::vector<byte_t>(binary.begin(), binary.end()));
+    }
+
+    result = t_iter.next();
+    assert(!result);
+}
+
 const std::vector<Attachment>& Message::attachments() const
 {
     return m_attachments;
@@ -146,6 +175,22 @@ cbor::Buffer Message::to_cbor_buffer() const
     return cbor::Buffer(to_cbor_dom());
 }
 
+void Message::to_bson_buffer(bson::Base& t_parent, std::string_view t_key) const
+{
+    bson::SubArray message_bson(t_parent, t_key);
+
+    message_bson.append_uint64(m_from);
+    message_bson.append_uint64(m_to);
+    message_bson.append_utf8(m_text);
+
+    {
+        bson::SubArray attachments_bson(message_bson, message_bson.index());
+        message_bson.increment();
+        for (const Attachment& attachment : m_attachments)
+            attachments_bson.append_binary(std::span(attachment.buffer().data(), attachment.buffer().size()));
+    }
+}
+
 std::ostream& operator<<(std::ostream& t_output, const Message& t_message)
 {
     t_output << t_message.from() << ", "
@@ -189,6 +234,24 @@ MessageVector::MessageVector(const msgpack::sbuffer& t_sbuf)
 {
 }
 
+MessageVector::MessageVector(bson::Iter& t_iter)
+{
+    bool result;
+
+    result = t_iter.next();
+    assert(result);
+    bson::Iter array = t_iter.as_array();
+
+    while (array.next())
+    {
+        bson::Iter message_iter = array.as_array();
+        m_messages.emplace_back(Message(message_iter));
+    }
+
+    result = t_iter.next();
+    assert(!result);
+}
+
 const std::vector<Message>& MessageVector::messages() const
 {
     return m_messages;
@@ -221,6 +284,20 @@ cbor::Item MessageVector::to_cbor_dom() const
 cbor::Buffer MessageVector::to_cbor_buffer() const
 {
     return cbor::Buffer(to_cbor_dom());
+}
+
+bson::Ptr MessageVector::to_bson_buffer() const
+{
+    auto buffer = std::make_unique<bson::Bson>();
+    {
+        bson::SubArray array(*buffer, "0");
+        for (const Message& message : m_messages)
+        {
+            message.to_bson_buffer(array, array.index());
+            array.increment();
+        }
+    }
+    return buffer;
 }
 
 }  // namespace hw1
