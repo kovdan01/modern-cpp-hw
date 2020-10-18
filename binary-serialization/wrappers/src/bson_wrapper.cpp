@@ -48,26 +48,29 @@ std::uint32_t Base::size() const
     return m_bson.len;
 }
 
-bool Base::append_uint64(std::string_view t_key, std::uint64_t t_value)
+void Base::append_uint64(std::string_view t_key, std::uint64_t t_value)
 {
-    return append_int64(t_key, detail::uint64_to_int64(t_value));
+    append_int64(t_key, detail::uint64_to_int64(t_value));
 }
 
-bool Base::append_int64(std::string_view t_key, std::int64_t t_value)
+void Base::append_int64(std::string_view t_key, std::int64_t t_value)
 {
-    return bson_append_int64(handle(), t_key.data(), static_cast<int>(t_key.size()), t_value);
+    if (!bson_append_int64(handle(), t_key.data(), static_cast<int>(t_key.size()), t_value))
+        throw std::runtime_error("Error while appending int64 to bson");
 }
 
-bool Base::append_utf8(std::string_view t_key, std::string_view t_value)
+void Base::append_utf8(std::string_view t_key, std::string_view t_value)
 {
-    return bson_append_utf8(handle(), t_key.data(), static_cast<int>(t_key.size()),
-                            t_value.data(), static_cast<int>(t_value.size()));
+    if (!bson_append_utf8(handle(), t_key.data(), static_cast<int>(t_key.size()),
+                          t_value.data(), static_cast<int>(t_value.size())))
+        throw std::runtime_error("Error while appending utf8 to bson");
 }
 
-bool Base::append_binary(std::string_view t_key, std::span<const std::uint8_t> t_value)
+void Base::append_binary(std::string_view t_key, std::span<const std::uint8_t> t_value)
 {
-    return bson_append_binary(handle(), t_key.data(), static_cast<int>(t_key.size()), BSON_SUBTYPE_BINARY,
-                              t_value.data(), static_cast<std::uint32_t>(t_value.size()));
+    if (!bson_append_binary(handle(), t_key.data(), static_cast<int>(t_key.size()), BSON_SUBTYPE_BINARY,
+                            t_value.data(), static_cast<std::uint32_t>(t_value.size())))
+        throw std::runtime_error("Error while appending binary to bson");
 }
 
 Bson::Bson()
@@ -86,24 +89,24 @@ SubArray::~SubArray()
     bson_append_array_end(m_parent.handle(), handle());
 }
 
-bool SubArray::append_uint64(std::uint64_t t_value)
+void SubArray::append_uint64(std::uint64_t t_value)
 {
-    return append_int64(detail::uint64_to_int64(t_value));
+    append_int64(detail::uint64_to_int64(t_value));
 }
 
-bool SubArray::append_int64(std::int64_t t_value)
+void SubArray::append_int64(std::int64_t t_value)
 {
-    return Base::append_int64(index(), t_value);
+    Base::append_int64(index(), t_value);
 }
 
-bool SubArray::append_utf8(std::string_view t_value)
+void SubArray::append_utf8(std::string_view t_value)
 {
-    return Base::append_utf8(index(), t_value);
+    Base::append_utf8(index(), t_value);
 }
 
-bool SubArray::append_binary(std::span<const std::uint8_t> t_value)
+void SubArray::append_binary(std::span<const std::uint8_t> t_value)
 {
-    return Base::append_binary(index(), t_value);
+    Base::append_binary(index(), t_value);
 }
 
 void SubArray::increment()

@@ -42,10 +42,10 @@ public:
 
     [[nodiscard]] std::uint32_t size() const;
 
-    bool append_uint64(std::string_view key, std::uint64_t value);
-    bool append_int64(std::string_view key, std::int64_t value);
-    bool append_utf8(std::string_view key, std::string_view value);
-    bool append_binary(std::string_view key, std::span<const std::uint8_t> value);
+    void append_uint64(std::string_view key, std::uint64_t value);
+    void append_int64(std::string_view key, std::int64_t value);
+    void append_utf8(std::string_view key, std::string_view value);
+    void append_binary(std::string_view key, std::span<const std::uint8_t> value);
 
 protected:
     Base() = default;
@@ -73,10 +73,10 @@ public:
     SubArray(Base& parent, std::string_view key);
     ~SubArray();
 
-    bool append_uint64(std::uint64_t value);
-    bool append_int64(std::int64_t value);
-    bool append_utf8(std::string_view value);
-    bool append_binary(std::span<const std::uint8_t> value);
+    void append_uint64(std::uint64_t value);
+    void append_int64(std::int64_t value);
+    void append_utf8(std::string_view value);
+    void append_binary(std::span<const std::uint8_t> value);
 
     void increment();
     [[nodiscard]] std::string index() const;

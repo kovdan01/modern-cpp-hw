@@ -53,6 +53,8 @@ public:
     operator const cbor_item_t*() const;
     operator cbor_item_t*();
 
+    void array_push(cbor_item_t* item);
+
 private:
     cbor_item_t* m_item = nullptr;
 

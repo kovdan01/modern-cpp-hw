@@ -158,14 +158,13 @@ cbor::Item Message::to_cbor_dom() const
     cbor::Item text = cbor::build_string(m_text);
 
     cbor::Item attachments = cbor::new_definite_array(m_attachments.size());
-    std::vector<cbor::Item> attachments_wrapper;
     for (const Attachment& attachment : m_attachments)
-        cbor_array_push(attachments, cbor::build_bytestring(attachment.buffer().data(), attachment.buffer().size()));
+        attachments.array_push(cbor::build_bytestring(attachment.buffer().data(), attachment.buffer().size()));
 
-    cbor_array_push(root, from);
-    cbor_array_push(root, to);
-    cbor_array_push(root, text);
-    cbor_array_push(root, attachments);
+    root.array_push(from);
+    root.array_push(to);
+    root.array_push(text);
+    root.array_push(attachments);
 
     return root;
 }
