@@ -7,7 +7,7 @@
 
 extern hw1::MessageVector g_messages;
 
-TEST_CASE("C++ object serialized with MsgPack to binary and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with MsgPack to bin             and than deserialized             is equal to itself",
           "[cpp_obj/msgpack_buf/cpp_obj]")
 {
     msgpack::sbuffer sbuf = g_messages.to_msgpack_buffer();
@@ -15,7 +15,7 @@ TEST_CASE("C++ object serialized with MsgPack to binary and than deserialized is
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with MsgPack to binary and than deserialized through DOM is equal to itself",
+TEST_CASE("C++ obj serialized with MsgPack to bin             and than deserialized through DOM is equal to itself",
           "[cpp_obj/msgpack_buf/msgpack_dom/cpp_obj]")
 {
     msgpack::sbuffer sbuf = g_messages.to_msgpack_buffer();
@@ -24,7 +24,7 @@ TEST_CASE("C++ object serialized with MsgPack to binary and than deserialized th
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with MsgPack to binary through DOM and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with MsgPack to bin through DOM and than deserialized             is equal to itself",
           "[cpp_obj/msgpack_dom/msgpack_buf/cpp_obj]")
 {
     msgpack::object_handle oh = g_messages.to_msgpack_dom();
@@ -34,7 +34,7 @@ TEST_CASE("C++ object serialized with MsgPack to binary through DOM and than des
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with MsgPack to binary through DOM and than deserialized through DOM is equal to itself",
+TEST_CASE("C++ obj serialized with MsgPack to bin through DOM and than deserialized through DOM is equal to itself",
           "[cpp_obj/msgpack_dom/msgpack_buf/msgpack_dom/cpp_obj]")
 {
     msgpack::object_handle oh1 = g_messages.to_msgpack_dom();
@@ -45,7 +45,7 @@ TEST_CASE("C++ object serialized with MsgPack to binary through DOM and than des
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with MsgPack to DOM and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with MsgPack to DOM             and than deserialized             is equal to itself",
           "[cpp_obj/msgpack_dom/cpp_obj]")
 {
     msgpack::object_handle oh = g_messages.to_msgpack_dom();
@@ -53,7 +53,7 @@ TEST_CASE("C++ object serialized with MsgPack to DOM and than deserialized is eq
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with Cbor to binary and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with Cbor    to bin             and than deserialized             is equal to itself",
           "[cpp_obj/cbor_buf/cpp_obj]")
 {
     hw1::cbor::Buffer buffer = g_messages.to_cbor_buffer();
@@ -61,7 +61,7 @@ TEST_CASE("C++ object serialized with Cbor to binary and than deserialized is eq
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with Cbor to binary and than deserialized through DOM is equal to itself",
+TEST_CASE("C++ obj serialized with Cbor    to bin             and than deserialized through DOM is equal to itself",
           "[cpp_obj/cbor_buf/cbor_dom/cpp_obj]")
 {
     hw1::cbor::Buffer buffer = g_messages.to_cbor_buffer();
@@ -70,7 +70,7 @@ TEST_CASE("C++ object serialized with Cbor to binary and than deserialized throu
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with Cbor to binary through DOM and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with Cbor    to bin through DOM and than deserialized             is equal to itself",
           "[cpp_obj/cbor_dom/cbor_buf/cpp_obj]")
 {
     hw1::cbor::Item item = g_messages.to_cbor_dom();
@@ -79,7 +79,7 @@ TEST_CASE("C++ object serialized with Cbor to binary through DOM and than deseri
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with Cbor to binary through DOM and than deserialized through DOM is equal to itself",
+TEST_CASE("C++ obj serialized with Cbor    to bin through DOM and than deserialized through DOM is equal to itself",
           "[cpp_obj/cbor_dom/cbor_buf/cbor_dom/cpp_obj]")
 {
     hw1::cbor::Item item1 = g_messages.to_cbor_dom();
@@ -89,7 +89,7 @@ TEST_CASE("C++ object serialized with Cbor to binary through DOM and than deseri
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with Cbor to DOM and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with Cbor    to DOM             and than deserialized             is equal to itself",
           "[cpp_obj/cbor_dom/cpp_obj]")
 {
     hw1::cbor::Item item = g_messages.to_cbor_dom();
@@ -97,7 +97,7 @@ TEST_CASE("C++ object serialized with Cbor to DOM and than deserialized is equal
     REQUIRE(g_messages == got);
 }
 
-TEST_CASE("C++ object serialized with Bson to binary and than deserialized is equal to itself",
+TEST_CASE("C++ obj serialized with Bson    to bin             and than deserialized             is equal to itself",
           "[cpp_obj/bson_buf/cpp_obj]")
 {
     hw1::bson::Ptr buffer = g_messages.to_bson_buffer();
