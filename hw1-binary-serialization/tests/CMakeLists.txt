@@ -43,3 +43,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE hw1::wrappers)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${TESTS_MAIN_NAME})
 
 ntc_target(${PROJECT_NAME})
+
+file(CREATE_LINK
+    ${CMAKE_CURRENT_LIST_DIR}/test.data
+    ${CMAKE_CURRENT_BINARY_DIR}/test.data
+)
+
+include(CTest)
+include(Catch)
+catch_discover_tests(${PROJECT_NAME}
+    EXTRA_ARGS -I test.data
+)

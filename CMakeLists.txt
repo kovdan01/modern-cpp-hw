@@ -11,6 +11,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/ntc-cmake")
 # in subprojects and establish default for BUILD_SHARED_LIBS.
 include(ntc-dev-build)
 
+enable_testing()
+
 add_subdirectory(hw1-binary-serialization)
 
 include(FeatureSummary)
