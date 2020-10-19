@@ -158,6 +158,8 @@ int main(int argc, char* argv[]) try
     msgpack::pack(sbuf, messages);
 
     std::ofstream out_file(out_file_name, std::ios_base::binary);
+    if (!out_file.is_open())
+        throw std::runtime_error("Error while opening output file");
     out_file.write(sbuf.data(), static_cast<std::streamsize>(sbuf.size()));
 
     return 0;
