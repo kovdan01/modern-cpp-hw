@@ -96,6 +96,8 @@ Buffer::Buffer(const Buffer& t_other)
     , m_capacity(m_size)
     , m_buffer(reinterpret_cast<cbor_mutable_data>(std::malloc(m_size)))  // NOLINT cppcoreguidelines-no-malloc
 {
+    if (m_buffer == nullptr)
+        throw std::bad_alloc();
     std::memcpy(m_buffer, t_other.m_buffer, m_size);
 }
 
@@ -104,9 +106,13 @@ Buffer& Buffer::operator=(const Buffer& t_other)
     if (&t_other == this)
         return *this;
 
+    dtor_impl();
+
     m_size = t_other.m_size;
     m_capacity = m_size;
     m_buffer = reinterpret_cast<cbor_mutable_data>(std::malloc(m_size));  // NOLINT cppcoreguidelines-no-malloc
+    if (m_buffer == nullptr)
+        throw std::bad_alloc();
     std::memcpy(m_buffer, t_other.m_buffer, m_size);
 
     return *this;
