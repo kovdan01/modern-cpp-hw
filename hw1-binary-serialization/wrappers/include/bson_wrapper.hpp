@@ -16,14 +16,6 @@ namespace hw1
 namespace bson
 {
 
-namespace detail
-{
-
-std::int64_t uint64_to_int64(std::uint64_t value) noexcept;
-std::uint64_t int64_to_uint64(std::int64_t value) noexcept;
-
-} // namespace detail
-
 class HW1_WRAPPERS_EXPORT Base
 {
 public:

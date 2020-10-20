@@ -11,20 +11,15 @@ namespace hw1
 namespace bson
 {
 
-namespace detail
-{
-
-std::int64_t uint64_to_int64(std::uint64_t t_value) noexcept
+static std::int64_t uint64_to_int64(std::uint64_t t_value) noexcept
 {
     return *reinterpret_cast<std::int64_t*>(&t_value);
 }
 
-std::uint64_t int64_to_uint64(std::int64_t t_value) noexcept
+static std::uint64_t int64_to_uint64(std::int64_t t_value) noexcept
 {
     return *reinterpret_cast<std::uint64_t*>(&t_value);
 }
-
-}  // namespace detail
 
 Base::~Base()
 {
@@ -53,7 +48,7 @@ std::uint32_t Base::size() const noexcept
 
 void Base::append_uint64(std::string_view t_key, std::uint64_t t_value)
 {
-    append_int64(t_key, detail::uint64_to_int64(t_value));
+    append_int64(t_key, uint64_to_int64(t_value));
 }
 
 void Base::append_int64(std::string_view t_key, std::int64_t t_value)
@@ -94,7 +89,7 @@ SubArray::~SubArray()
 
 void SubArray::append_uint64(std::uint64_t t_value)
 {
-    append_int64(detail::uint64_to_int64(t_value));
+    append_int64(uint64_to_int64(t_value));
 }
 
 void SubArray::append_int64(std::int64_t t_value)
@@ -163,7 +158,7 @@ bool Iter::is_array() const
 std::uint64_t Iter::as_uint64() const
 {
     assert(is_uint64());  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
-    return detail::int64_to_uint64(as_int64());
+    return int64_to_uint64(as_int64());
 }
 
 std::int64_t Iter::as_int64() const
