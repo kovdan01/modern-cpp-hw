@@ -79,7 +79,7 @@ public:
     void append_binary(std::span<const std::uint8_t> value);
 
     void increment();
-    [[nodiscard]] std::string index() const;
+    [[nodiscard]] std::uint32_t index() const;
 
 private:
     Base& m_parent;
@@ -121,5 +121,19 @@ private:
 }  // namespace bson
 
 }  // namespace hw1
+
+#define HW1_BSON_DETAIL_UNIQUE_ID_IMPL(varname, lineno) varname##lineno
+#define HW1_BSON_DETAIL_UNIQUE_ID(varname, lineno) HW1_BSON_DETAIL_UNIQUE_ID_IMPL(varname, lineno)
+
+#define HW1_BSON_DECLARE_STRING_INDEX(string_name, sub_array)                           \
+    char HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__)[16];                                  \
+    const char* HW1_BSON_DETAIL_UNIQUE_ID(key, __LINE__);                               \
+    std::size_t HW1_BSON_DETAIL_UNIQUE_ID(str_length, __LINE__) =                       \
+        bson_uint32_to_string(sub_array.index(),                                        \
+                              &HW1_BSON_DETAIL_UNIQUE_ID(key, __LINE__),                \
+                              HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__),                 \
+                              sizeof(HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__)));        \
+    std::string_view string_name(HW1_BSON_DETAIL_UNIQUE_ID(key, __LINE__),              \
+                                 HW1_BSON_DETAIL_UNIQUE_ID(str_length, __LINE__));
 
 #endif  // HW1_BINARY_SERIALIZATION_WRAPPERS_BSON_WRAPPER_HPP_

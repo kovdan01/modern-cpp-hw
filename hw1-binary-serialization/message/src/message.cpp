@@ -183,7 +183,8 @@ void Message::to_bson_buffer(bson::Base& t_parent, std::string_view t_key) const
     message_bson.append_utf8(m_text);
 
     {
-        bson::SubArray attachments_bson(message_bson, message_bson.index());
+        HW1_BSON_DECLARE_STRING_INDEX(index, message_bson)
+        bson::SubArray attachments_bson(message_bson, index);
         message_bson.increment();
         for (const Attachment& attachment : m_attachments)
             attachments_bson.append_binary(std::span(attachment.buffer().data(), attachment.buffer().size()));
@@ -292,7 +293,8 @@ bson::Ptr MessageVector::to_bson_buffer() const
         bson::SubArray array(*buffer, "0");
         for (const Message& message : m_messages)
         {
-            message.to_bson_buffer(array, array.index());
+            HW1_BSON_DECLARE_STRING_INDEX(index, array);
+            message.to_bson_buffer(array, index);
             array.increment();
         }
     }

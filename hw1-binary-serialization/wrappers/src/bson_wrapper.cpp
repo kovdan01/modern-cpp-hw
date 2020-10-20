@@ -2,6 +2,9 @@
 
 #include <cassert>
 
+#define HW1_BSON_DECLARE_STRING_INDEX_THIS(string_name) \
+    HW1_BSON_DECLARE_STRING_INDEX(string_name, (*this))
+
 namespace hw1
 {
 
@@ -96,17 +99,20 @@ void SubArray::append_uint64(std::uint64_t t_value)
 
 void SubArray::append_int64(std::int64_t t_value)
 {
-    Base::append_int64(index(), t_value);
+    HW1_BSON_DECLARE_STRING_INDEX_THIS(i);
+    Base::append_int64(i, t_value);
 }
 
 void SubArray::append_utf8(std::string_view t_value)
 {
-    Base::append_utf8(index(), t_value);
+    HW1_BSON_DECLARE_STRING_INDEX_THIS(i);
+    Base::append_utf8(i, t_value);
 }
 
 void SubArray::append_binary(std::span<const std::uint8_t> t_value)
 {
-    Base::append_binary(index(), t_value);
+    HW1_BSON_DECLARE_STRING_INDEX_THIS(i);
+    Base::append_binary(i, t_value);
 }
 
 void SubArray::increment()
@@ -114,9 +120,9 @@ void SubArray::increment()
     ++m_index;
 }
 
-std::string SubArray::index() const
+std::uint32_t SubArray::index() const
 {
-    return std::to_string(m_index);
+    return m_index;
 }
 
 Iter::Iter(const bson_t* document)
