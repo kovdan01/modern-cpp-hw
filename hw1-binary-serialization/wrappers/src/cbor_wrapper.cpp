@@ -13,7 +13,7 @@ namespace hw1
 namespace cbor
 {
 
-Item::Item(cbor_item_t* item)
+Item::Item(cbor_item_t* item) noexcept
     : m_item(item)
 {
 }
@@ -26,13 +26,13 @@ Item::Item(const Buffer& buffer)
         throw std::runtime_error("Cbor deserialization error " + std::to_string(result.error.code));
 }
 
-Item::Item(const Item& t_other)
+Item::Item(const Item& t_other) noexcept
     : m_item(t_other.m_item)
 {
     cbor_incref(m_item);
 }
 
-Item& Item::operator=(const Item& t_other)
+Item& Item::operator=(const Item& t_other) noexcept
 {
     if (&t_other == this)
         return *this;
@@ -75,12 +75,12 @@ void Item::dtor_impl()
         cbor_decref(&m_item);
 }
 
-Item::operator const cbor_item_t*() const
+Item::operator const cbor_item_t*() const noexcept
 {
     return m_item;
 }
 
-Item::operator cbor_item_t*()
+Item::operator cbor_item_t*() noexcept
 {
     return m_item;
 }
@@ -146,17 +146,17 @@ Buffer& Buffer::operator=(Buffer&& t_other) noexcept
     return *this;
 }
 
-std::size_t Buffer::size() const
+std::size_t Buffer::size() const noexcept
 {
     return m_size;
 }
 
-cbor_data Buffer::data() const
+cbor_data Buffer::data() const noexcept
 {
     return m_buffer;
 }
 
-cbor_mutable_data Buffer::data()
+cbor_mutable_data Buffer::data() noexcept
 {
     return m_buffer;
 }

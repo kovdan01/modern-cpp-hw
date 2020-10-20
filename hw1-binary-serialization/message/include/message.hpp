@@ -29,9 +29,9 @@ public:
 
     explicit Attachment(std::vector<byte_t> buffer);
 
-    bool operator==(const Attachment&) const = default;
+    bool operator==(const Attachment&) const noexcept = default;
 
-    [[nodiscard]] const std::vector<byte_t>& buffer() const;
+    [[nodiscard]] const std::vector<byte_t>& buffer() const noexcept;
 
 private:
     std::vector<byte_t> m_buffer;
@@ -60,12 +60,12 @@ public:
     explicit Message(const msgpack::sbuffer& sbuf);
     explicit Message(bson::Iter& iter);
 
-    bool operator==(const Message&) const = default;
+    bool operator==(const Message&) const noexcept = default;
 
-    [[nodiscard]] const std::vector<Attachment>& attachments() const;
-    [[nodiscard]] const std::string& text() const;
-    [[nodiscard]] user_id_t from() const;
-    [[nodiscard]] user_id_t to() const;
+    [[nodiscard]] const std::vector<Attachment>& attachments() const noexcept;
+    [[nodiscard]] const std::string& text() const noexcept;
+    [[nodiscard]] user_id_t from() const noexcept;
+    [[nodiscard]] user_id_t to() const noexcept;
 
 private:
     std::vector<Attachment> m_attachments;
@@ -106,7 +106,7 @@ public:
 
     bool operator==(const MessageVector&) const = default;
 
-    [[nodiscard]] const std::vector<Message>& messages() const;
+    [[nodiscard]] const std::vector<Message>& messages() const noexcept;
 
     [[nodiscard]] msgpack::object_handle to_msgpack_dom() const;
     [[nodiscard]] msgpack::sbuffer to_msgpack_buffer() const;

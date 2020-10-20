@@ -17,7 +17,7 @@ namespace cbor
 class HW1_WRAPPERS_EXPORT Buffer
 {
 public:
-    Buffer() = default;
+    Buffer() noexcept = default;
     Buffer(const Buffer&);
     Buffer& operator=(const Buffer&);
     Buffer(Buffer&&) noexcept;
@@ -26,9 +26,9 @@ public:
 
     Buffer(const cbor_item_t* item);
 
-    [[nodiscard]] std::size_t size() const;
-    [[nodiscard]] cbor_data data() const;
-    cbor_mutable_data data();
+    [[nodiscard]] std::size_t size() const noexcept;
+    [[nodiscard]] cbor_data data() const noexcept;
+    cbor_mutable_data data() noexcept;
 
 private:
     std::size_t m_size = 0;
@@ -41,17 +41,17 @@ private:
 class HW1_WRAPPERS_EXPORT Item
 {
 public:
-    explicit Item(cbor_item_t* item);
+    explicit Item(cbor_item_t* item) noexcept;
     Item(const Buffer& buffer);
-    Item(const Item&);
-    Item& operator=(const Item&);
+    Item(const Item&) noexcept;
+    Item& operator=(const Item&) noexcept;
     Item(Item&&) noexcept;
     Item& operator=(Item&&) noexcept;
 
     ~Item();
 
-    operator const cbor_item_t*() const;
-    operator cbor_item_t*();
+    operator const cbor_item_t*() const noexcept;
+    operator cbor_item_t*() noexcept;
 
     void array_push(cbor_item_t* item);
 

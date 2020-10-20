@@ -14,12 +14,12 @@ namespace bson
 namespace detail
 {
 
-std::int64_t uint64_to_int64(std::uint64_t t_value)
+std::int64_t uint64_to_int64(std::uint64_t t_value) noexcept
 {
     return *reinterpret_cast<std::int64_t*>(&t_value);
 }
 
-std::uint64_t int64_to_uint64(std::int64_t t_value)
+std::uint64_t int64_to_uint64(std::int64_t t_value) noexcept
 {
     return *reinterpret_cast<std::uint64_t*>(&t_value);
 }
@@ -31,22 +31,22 @@ Base::~Base()
     bson_destroy(&m_bson);
 }
 
-Base::Base(const bson_t& t_value)
+Base::Base(const bson_t& t_value) noexcept
     : m_bson(t_value)
 {
 }
 
-const bson_t* Base::handle() const
+const bson_t* Base::handle() const noexcept
 {
     return &m_bson;
 }
 
-bson_t* Base::handle()
+bson_t* Base::handle() noexcept
 {
     return &m_bson;
 }
 
-std::uint32_t Base::size() const
+std::uint32_t Base::size() const noexcept
 {
     return m_bson.len;
 }
@@ -81,7 +81,7 @@ Bson::Bson()
 {
 }
 
-SubArray::SubArray(Base& t_parent, std::string_view t_key)
+SubArray::SubArray(Base& t_parent, std::string_view t_key) noexcept
     : m_parent(t_parent)
 {
     bson_append_array_begin(m_parent.handle(), t_key.data(), static_cast<int>(t_key.size()), handle());
@@ -115,12 +115,12 @@ void SubArray::append_binary(std::span<const std::uint8_t> t_value)
     Base::append_binary(i, t_value);
 }
 
-void SubArray::increment()
+void SubArray::increment() noexcept
 {
     ++m_index;
 }
 
-std::uint32_t SubArray::index() const
+std::uint32_t SubArray::index() const noexcept
 {
     return m_index;
 }

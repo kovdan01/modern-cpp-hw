@@ -11,7 +11,7 @@ Attachment::Attachment(std::vector<byte_t> t_buffer)
 {
 }
 
-const std::vector<byte_t>& Attachment::buffer() const
+const std::vector<byte_t>& Attachment::buffer() const noexcept
 {
     return m_buffer;
 }
@@ -115,22 +115,22 @@ Message::Message(bson::Iter& t_iter)
     assert(!result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 }
 
-const std::vector<Attachment>& Message::attachments() const
+const std::vector<Attachment>& Message::attachments() const noexcept
 {
     return m_attachments;
 }
 
-const std::string& Message::text() const
+const std::string& Message::text() const noexcept
 {
     return m_text;
 }
 
-user_id_t Message::from() const
+user_id_t Message::from() const noexcept
 {
     return m_from;
 }
 
-user_id_t Message::to() const
+user_id_t Message::to() const noexcept
 {
     return m_to;
 }
@@ -252,7 +252,7 @@ MessageVector::MessageVector(bson::Iter& t_iter)
     assert(!result);  // NOLINT cppcoreguidelines-pro-bounds-array-to-pointer-decay
 }
 
-const std::vector<Message>& MessageVector::messages() const
+const std::vector<Message>& MessageVector::messages() const noexcept
 {
     return m_messages;
 }
