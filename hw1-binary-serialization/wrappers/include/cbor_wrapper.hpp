@@ -35,7 +35,7 @@ private:
     std::size_t m_capacity = 0;
     cbor_mutable_data m_buffer = nullptr;
 
-    void dtor_impl();
+    void dtor_impl() noexcept;
 };
 
 class HW1_WRAPPERS_EXPORT Item

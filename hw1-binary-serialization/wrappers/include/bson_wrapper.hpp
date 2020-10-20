@@ -54,7 +54,7 @@ class HW1_WRAPPERS_EXPORT Bson : public Base
 public:
     using Base::Base;
 
-    Bson();
+    Bson() noexcept;
 };
 
 class HW1_WRAPPERS_EXPORT SubArray : public Base
@@ -62,7 +62,7 @@ class HW1_WRAPPERS_EXPORT SubArray : public Base
 public:
     using Base::Base;
 
-    SubArray(Base& parent, std::string_view key) noexcept;
+    SubArray(Base& parent, std::string_view key);
     ~SubArray();
 
     void append_uint64(std::uint64_t value);
@@ -83,29 +83,29 @@ class HW1_WRAPPERS_EXPORT Iter
 public:
     Iter(const bson_t* document);
 
-    Iter(const Iter&) = default;
-    Iter& operator=(const Iter&) = default;
+    Iter(const Iter&) noexcept = default;
+    Iter& operator=(const Iter&) noexcept = default;
     Iter(Iter&&) noexcept = default;
     Iter& operator=(Iter&&) noexcept = default;
 
     ~Iter() = default;
 
-    bool next();
+    bool next() noexcept;
 
-    [[nodiscard]] bool is_uint64() const;
-    [[nodiscard]] bool is_int64() const;
-    [[nodiscard]] bool is_binary() const;
-    [[nodiscard]] bool is_utf8() const;
-    [[nodiscard]] bool is_array() const;
+    [[nodiscard]] bool is_uint64() const noexcept;
+    [[nodiscard]] bool is_int64() const noexcept;
+    [[nodiscard]] bool is_binary() const noexcept;
+    [[nodiscard]] bool is_utf8() const noexcept;
+    [[nodiscard]] bool is_array() const noexcept;
 
-    [[nodiscard]] std::uint64_t as_uint64() const;
-    [[nodiscard]] std::int64_t as_int64() const;
+    [[nodiscard]] std::uint64_t as_uint64() const noexcept;
+    [[nodiscard]] std::int64_t as_int64() const noexcept;
     [[nodiscard]] std::span<const std::uint8_t> as_binary() const;
     [[nodiscard]] std::string_view as_utf8() const;
-    [[nodiscard]] Iter as_array() const;
+    [[nodiscard]] Iter as_array() const noexcept;
 
 private:
-    Iter() = default;
+    Iter() noexcept = default;
 
     bson_iter_t m_iter;
 };
@@ -121,7 +121,7 @@ private:
     char HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__)[16];                                  \
     const char* HW1_BSON_DETAIL_UNIQUE_ID(key, __LINE__);                               \
     std::size_t HW1_BSON_DETAIL_UNIQUE_ID(str_length, __LINE__) =                       \
-        bson_uint32_to_string(sub_array.index(),                                        \
+        bson_uint32_to_string((sub_array).index(),                                      \
                               &HW1_BSON_DETAIL_UNIQUE_ID(key, __LINE__),                \
                               HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__),                 \
                               sizeof(HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__)));        \

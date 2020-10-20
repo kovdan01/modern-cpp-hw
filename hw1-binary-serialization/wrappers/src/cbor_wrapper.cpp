@@ -166,10 +166,9 @@ Buffer::~Buffer()
     dtor_impl();
 }
 
-void Buffer::dtor_impl()
+void Buffer::dtor_impl() noexcept
 {
-    if (m_buffer != nullptr)
-        std::free(m_buffer);  // NOLINT cppcoreguidelines-no-malloc
+    std::free(m_buffer);  // NOLINT cppcoreguidelines-no-malloc
 }
 
 static void check_ptr(void* ptr)
