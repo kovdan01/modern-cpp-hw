@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(NAMESPACE hw1)
-set(COMPONENT benchmark)
-project(${NAMESPACE}-${COMPONENT}
+project(hw1-benchmark
         VERSION 0.0.0
         LANGUAGES CXX
 )

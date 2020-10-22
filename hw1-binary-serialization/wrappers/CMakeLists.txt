@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(NAMESPACE hw1)
-set(COMPONENT wrappers)
-project(${NAMESPACE}-${COMPONENT}
+project(hw1-wrappers
         VERSION 0.0.0
         LANGUAGES CXX
 )
@@ -28,4 +26,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PUBLIC mongo::bson_shared)
 target_link_libraries(${PROJECT_NAME} PUBLIC PkgConfig::cbor)
 
-ntc_target(${PROJECT_NAME} wrappers/)
+ntc_target(${PROJECT_NAME}
+    ALIAS_NAME hw1::wrappers
+    HEADER_PREFIX hw1/wrappers/
+)

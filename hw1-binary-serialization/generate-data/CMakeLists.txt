@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(NAMESPACE hw1)
-set(COMPONENT generate-data)
-project(${NAMESPACE}-${COMPONENT}
+project(hw1-generate-data
         VERSION 0.0.0
         LANGUAGES CXX
 )

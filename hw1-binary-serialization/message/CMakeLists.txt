@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(NAMESPACE hw1)
-set(COMPONENT message)
-project(${NAMESPACE}-${COMPONENT}
+project(hw1-message
         VERSION 0.0.0
         LANGUAGES CXX
 )
@@ -24,4 +22,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC hw1::wrappers)
 
-ntc_target(${PROJECT_NAME} message/)
+ntc_target(${PROJECT_NAME}
+    ALIAS_NAME hw1::message
+    HEADER_PREFIX hw1/message/
+)

@@ -10,51 +10,52 @@ include_guard(GLOBAL)
 # Used to provide subpath customization and handle lib32/lib64, etc.
 include(GNUInstallDirs)
 
-function(_ntc_alias_target_name OUTPUT)
-    if(COMPONENT)
-        set(${OUTPUT} "${NAMESPACE}::${COMPONENT}" PARENT_SCOPE)
-    else()
-        set(${OUTPUT} "${NAMESPACE}::${NAMESPACE}" PARENT_SCOPE)
+function(ntc_target TARGET_NAME)
+    cmake_parse_arguments(PARSE_ARGV 1 args "PRIVATE_CONFIG" "ALIAS_NAME;HEADER_PREFIX" "")
+    if(args_UNPARSED_ARGUMENTS OR args_KEYWORDS_MISSING_VALUES)
+        message(SEND_ERROR "Invalid arguments to ntc_target")
     endif()
-endfunction()
+    if(NOT args_ALIAS_NAME)
+        set(args_ALIAS_NAME "${TARGET_NAME}::${TARGET_NAME}")
+    endif()
+    if(NOT args_HEADER_PREFIX)
+        set(args_HEADER_PREFIX "${TARGET_NAME}/")
+    endif()
 
-# Helper function to setup common library configuration.
-# Optional argument will be inserted between
-# include/${NAMESPACE}/ and config/export header names.
-
-function(ntc_target TARGET_NAME) # INCLUDE_INFIX_opt
     get_target_property(project_type ${TARGET_NAME} TYPE)
-
-    _ntc_alias_target_name(alias_name)
+    get_filename_component(generated_header_path "${args_HEADER_PREFIX}x" DIRECTORY)
 
     if(project_type STREQUAL OBJECT_LIBRARY)
         message(FATAL_ERROR "ntc_setup doesn't support object libraries")
     elseif(project_type STREQUAL EXECUTABLE)
         set(include_type PRIVATE)
 
-        add_executable(${alias_name} ALIAS ${TARGET_NAME})
+        add_executable(${args_ALIAS_NAME} ALIAS ${TARGET_NAME})
 
         install(TARGETS ${TARGET_NAME}
-                COMPONENT ${alias_name}
+                COMPONENT ${args_ALIAS_NAME}
         )
     else() # {STATIC,MODULE,SHARED,INTERFACE}_LIBRARY
-        set(include_type PUBLIC)
-
-        add_library(${alias_name} ALIAS ${TARGET_NAME})
+        add_library(${args_ALIAS_NAME} ALIAS ${TARGET_NAME})
 
         set_target_properties(${TARGET_NAME} PROPERTIES
             # Current library version is same as this project ("max API supported").
             VERSION "${PROJECT_VERSION}"
         )
 
-        if(NOT project_type STREQUAL INTERFACE_LIBRARY)
+        if(project_type STREQUAL INTERFACE_LIBRARY)
+            set(include_type INTERFACE)
+        else()
+            set(include_type PUBLIC)
+
             # Support proper visibility/dllexport handling for shared library builds.
             include(GenerateExportHeader)
-            generate_export_header(${TARGET_NAME} EXPORT_FILE_NAME include/${NAMESPACE}/${ARGN}export.h)
-            target_sources(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include/${NAMESPACE}/${ARGN}export.h)
-            install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/${NAMESPACE}/${ARGN}export.h
-                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${NAMESPACE}/${ARGN}"
-                    COMPONENT ${alias_name}
+            set(export_header "include/${args_HEADER_PREFIX}export.h")
+            generate_export_header(${TARGET_NAME} EXPORT_FILE_NAME ${export_header})
+            target_sources(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${export_header})
+            install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${export_header}
+                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${generated_header_path}"
+                    COMPONENT ${args_ALIAS_NAME}
             )
 
             # Use visibility in standard builds.
@@ -71,16 +72,16 @@ function(ntc_target TARGET_NAME) # INCLUDE_INFIX_opt
         # Install library.
         install(TARGETS ${TARGET_NAME}
                 EXPORT ${TARGET_NAME}-targets
+                COMPONENT ${args_ALIAS_NAME}
                 # This provides include directory in exported target
                 # relative to prefix in single directory we've put everything in.
                 INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-                COMPONENT ${alias_name}
         )
 
         # Install headers from source tree.
-        install(DIRECTORY include/${NAMESPACE}
+        install(DIRECTORY include/
                 TYPE INCLUDE
-                COMPONENT ${alias_name}
+                COMPONENT ${args_ALIAS_NAME}
         )
     endif()
 
@@ -120,20 +121,21 @@ function(ntc_target TARGET_NAME) # INCLUDE_INFIX_opt
         )
     endif()
 
-    _ntc_alias_target_name(alias_name)
-
     # Look for configuration file in source directory.
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/config.hpp.in")
         # If there is one, process and install it.
         target_sources(${TARGET_NAME} PRIVATE src/config.hpp.in)
-        set(config_output "${NAMESPACE}/${ARGV1}config.hpp")
-        configure_file(src/config.hpp.in "include/${config_output}" ESCAPE_QUOTES)
-        # TODO: libraries might want to not install private config.
-        if(NOT project_type STREQUAL EXECUTABLE)
-            install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/${config_output}"
-                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${NAMESPACE}/${ARGV1}"
-                    COMPONENT ${alias_name}
+        set(config_header "include/${args_HEADER_PREFIX}config.hpp")
+        configure_file(src/config.hpp.in "${config_header}" ESCAPE_QUOTES)
+        if(NOT project_type STREQUAL EXECUTABLE AND NOT args_PRIVATE_CONFIG)
+            install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${config_header}"
+                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${generated_header_path}"
+                    COMPONENT ${args_ALIAS_NAME}
             )
+        endif()
+    else()
+        if(args_PRIVATE_CONFIG)
+            message(SEND_ERROR "PRIVATE_CONFIG was specified, but no config file template found")
         endif()
     endif()
 
@@ -141,7 +143,7 @@ function(ntc_target TARGET_NAME) # INCLUDE_INFIX_opt
     foreach(incdir "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include")
         if(EXISTS "${incdir}")
             # These directories are used only during build, common include directory
-            # where everthing gets installed is specified in install(TARGETS ... INCLUDES DESTINATION)
+            # where everything gets installed is specified in install(TARGETS ... INCLUDES DESTINATION)
             target_include_directories(${TARGET_NAME} ${include_type} "$<BUILD_INTERFACE:${incdir}>")
         endif()
     endforeach()
@@ -150,12 +152,8 @@ function(ntc_target TARGET_NAME) # INCLUDE_INFIX_opt
     set_target_properties(${TARGET_NAME} PROPERTIES
         # We don't want any language extensions.
         CXX_EXTENSIONS OFF
-        # We can't rely on NAMESPACE option to export/install(EXPORT),
-        # because then we will have to use COMPONENT as logical name,
-        # which will have to be nontrivial to not clash with other projects
-        # in same tree and duplicate parts of namespace name.
-        # Set proper EXPORT_NAME manually.
-        EXPORT_NAME "${alias_name}"
+        # Set EXPORT_NAME once for export/install(EXPORT).
+        EXPORT_NAME "${args_ALIAS_NAME}"
     )
 
     if(NTC_DEV_BUILD)
@@ -176,31 +174,42 @@ function(ntc_target TARGET_NAME) # INCLUDE_INFIX_opt
     if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_NAME}-config.cmake.in)
         include(CMakePackageConfigHelpers)
 
+        if(project_type STREQUAL INTERFACE_LIBRARY)
+            # Interface libraries can be installed in generic subdirectory
+            # to be available for every architecture.
+            set(cmake_config_path "lib")
+            set(extra_version_file_args ARCH_INDEPENDENT)
+        else()
+            set(cmake_config_path "${CMAKE_INSTALL_LIBDIR}")
+        endif()
+        set(cmake_config_path "${cmake_config_path}/cmake/${TARGET_NAME}")
+
         # Configure the main package file from source tree.
         configure_package_config_file(${TARGET_NAME}-config.cmake.in
             "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}-config.cmake"
-            INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${NAMESPACE}"
+            INSTALL_DESTINATION "${cmake_config_path}"
         )
 
         # Write package version file.
         write_basic_package_version_file(${TARGET_NAME}-config-version.cmake
             VERSION ${PROJECT_VERSION}
             COMPATIBILITY SameMajorVersion
+            ${extra_version_file_args}
         )
 
         # Install the generated package version file and the main package file.
         install(FILES
             "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}-config.cmake"
             "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}-config-version.cmake"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${NAMESPACE}"
-            COMPONENT ${alias_name}
+            DESTINATION "${cmake_config_path}"
+            COMPONENT ${args_ALIAS_NAME}
         )
 
         # This installs package in install tree for using installed targets.
         install(EXPORT ${TARGET_NAME}-targets
                 FILE ${TARGET_NAME}-targets.cmake
-                DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${NAMESPACE}"
-                COMPONENT ${alias_name}
+                DESTINATION "${cmake_config_path}"
+                COMPONENT ${args_ALIAS_NAME}
         )
     endif()
 
