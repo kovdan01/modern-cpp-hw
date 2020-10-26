@@ -15,13 +15,13 @@
 
 static std::mt19937 g_prng(std::random_device{}());
 
-static std::string generate_text(std::size_t t_size)
+static std::string generate_text(std::size_t size)
 {
     static std::uniform_int_distribution<char> dist(std::numeric_limits<char>::min(),
                                                     std::numeric_limits<char>::max());
     std::string ans;
-    ans.reserve(t_size);
-    for (std::size_t i = 0; i < t_size; ++i)
+    ans.reserve(size);
+    for (std::size_t i = 0; i < size; ++i)
     {
         char sym;
         do
@@ -34,38 +34,38 @@ static std::string generate_text(std::size_t t_size)
     return ans;
 }
 
-static hw1::Attachment generate_attachment(std::size_t t_size)
+static hw1::Attachment generate_attachment(std::size_t size)
 {
     static std::uniform_int_distribution<hw1::byte_t> dist(std::numeric_limits<hw1::byte_t>::min(),
                                                            std::numeric_limits<hw1::byte_t>::max());
     std::vector<hw1::byte_t> ans;
-    ans.reserve(t_size);
-    for (std::size_t i = 0; i < t_size; ++i)
+    ans.reserve(size);
+    for (std::size_t i = 0; i < size; ++i)
         ans.emplace_back(dist(g_prng));
 
     return hw1::Attachment(ans);
 }
 
-static hw1::Message generate_message(std::size_t t_text_from, std::size_t t_text_to,
-                                     std::size_t t_attach_count_from, std::size_t t_attach_count_to,
-                                     std::size_t t_attach_size_from, std::size_t t_attach_size_to)
+static hw1::Message generate_message(std::size_t text_from, std::size_t text_to,
+                                     std::size_t attach_count_from, std::size_t attach_count_to,
+                                     std::size_t attach_size_from, std::size_t attach_size_to)
 {
     static std::uniform_int_distribution<hw1::user_id_t> user_id_dist(std::numeric_limits<hw1::user_id_t>::min(),
                                                                       std::numeric_limits<hw1::user_id_t>::max());
     hw1::user_id_t from = user_id_dist(g_prng);
     hw1::user_id_t to   = user_id_dist(g_prng);
 
-    std::string text = generate_text(std::uniform_int_distribution<std::size_t>(t_text_from, t_text_to)(g_prng));
+    std::string text = generate_text(std::uniform_int_distribution<std::size_t>(text_from, text_to)(g_prng));
 
     // some magic constants here
 
     static std::gamma_distribution<double> attach_count_dist(1, 1);
     std::size_t attach_count;
-    double magic_constant = static_cast<double>(t_attach_count_to) / 10;
+    double magic_constant = static_cast<double>(attach_count_to) / 10;
     do
     {
         attach_count = static_cast<std::size_t>(magic_constant * attach_count_dist(g_prng));
-    } while (attach_count < t_attach_count_from || attach_count > t_attach_count_to);
+    } while (attach_count < attach_count_from || attach_count > attach_count_to);
 
     std::vector<hw1::Attachment> attachments;
     attachments.reserve(attach_count);
@@ -74,26 +74,26 @@ static hw1::Message generate_message(std::size_t t_text_from, std::size_t t_text
     for (std::size_t i = 0; i < attach_count; ++i)
     {
         std::size_t attach_size;
-        double magic_constant = static_cast<double>(t_attach_size_to) / 8;
+        double magic_constant = static_cast<double>(attach_size_to) / 8;
         do
         {
             attach_size = static_cast<std::size_t>(magic_constant * attach_size_dist(g_prng));
-        } while (attach_size < t_attach_size_from || attach_size > t_attach_size_to);
+        } while (attach_size < attach_size_from || attach_size > attach_size_to);
         attachments.emplace_back(generate_attachment(attach_size));
     }
 
     return hw1::Message(from, to, std::move(text), std::move(attachments));
 }
 
-static std::vector<hw1::Message> generate_vector_of_messages(std::size_t t_size, std::size_t t_text_from, std::size_t t_text_to,
-                                                             std::size_t t_attach_count_from, std::size_t t_attach_count_to,
-                                                             std::size_t t_attach_size_from, std::size_t t_attach_size_to)
+static std::vector<hw1::Message> generate_vector_of_messages(std::size_t size, std::size_t text_from, std::size_t text_to,
+                                                             std::size_t attach_count_from, std::size_t attach_count_to,
+                                                             std::size_t attach_size_from, std::size_t attach_size_to)
 {
     std::vector<hw1::Message> ans;
-    ans.reserve(t_size);
-    for (std::size_t i = 0; i < t_size; ++i)
-        ans.emplace_back(generate_message(t_text_from, t_text_to, t_attach_count_from,
-                                          t_attach_count_to, t_attach_size_from, t_attach_size_to));
+    ans.reserve(size);
+    for (std::size_t i = 0; i < size; ++i)
+        ans.emplace_back(generate_message(text_from, text_to, attach_count_from,
+                                          attach_count_to, attach_size_from, attach_size_to));
 
     return ans;
 }

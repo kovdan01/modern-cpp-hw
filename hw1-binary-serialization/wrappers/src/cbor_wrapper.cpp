@@ -7,10 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace hw1
-{
-
-namespace cbor
+namespace hw1::cbor
 {
 
 Item::Item(cbor_item_t* item) noexcept
@@ -26,40 +23,40 @@ Item::Item(const Buffer& buffer)
         throw std::runtime_error("Cbor deserialization error " + std::to_string(result.error.code));
 }
 
-Item::Item(const Item& t_other) noexcept
-    : m_item(t_other.m_item)
+Item::Item(const Item& other) noexcept
+    : m_item(other.m_item)
 {
     cbor_incref(m_item);
 }
 
-Item& Item::operator=(const Item& t_other) noexcept
+Item& Item::operator=(const Item& other) noexcept
 {
-    if (&t_other == this)
+    if (&other == this)
         return *this;
 
     dtor_impl();
 
-    m_item = t_other.m_item;
+    m_item = other.m_item;
     cbor_incref(m_item);
 
     return *this;
 }
 
-Item::Item(Item&& t_other) noexcept
-    : m_item(t_other.m_item)
+Item::Item(Item&& other) noexcept
+    : m_item(other.m_item)
 {
-    t_other.m_item = nullptr;
+    other.m_item = nullptr;
 }
 
-Item& Item::operator=(Item&& t_other) noexcept
+Item& Item::operator=(Item&& other) noexcept
 {
-    if (&t_other == this)
+    if (&other == this)
         return *this;
 
     dtor_impl();
 
-    m_item = t_other.m_item;
-    t_other.m_item = nullptr;
+    m_item = other.m_item;
+    other.m_item = nullptr;
 
     return *this;
 }
@@ -85,63 +82,63 @@ Item::operator cbor_item_t*() noexcept
     return m_item;
 }
 
-void Item::array_push(cbor_item_t* t_item)
+void Item::array_push(cbor_item_t* item)
 {
-    if (!cbor_array_push(m_item, t_item))
+    if (!cbor_array_push(m_item, item))
         throw std::runtime_error("Cbor array push error");
 }
 
-Buffer::Buffer(const Buffer& t_other)
-    : m_size(t_other.m_size)
+Buffer::Buffer(const Buffer& other)
+    : m_size(other.m_size)
     , m_capacity(m_size)
     , m_buffer(reinterpret_cast<cbor_mutable_data>(std::malloc(m_size)))  // NOLINT cppcoreguidelines-no-malloc
 {
     if (m_buffer == nullptr)
         throw std::bad_alloc();
-    std::memcpy(m_buffer, t_other.m_buffer, m_size);
+    std::memcpy(m_buffer, other.m_buffer, m_size);
 }
 
-Buffer& Buffer::operator=(const Buffer& t_other)
+Buffer& Buffer::operator=(const Buffer& other)
 {
-    if (&t_other == this)
+    if (&other == this)
         return *this;
 
     dtor_impl();
 
-    m_size = t_other.m_size;
+    m_size = other.m_size;
     m_capacity = m_size;
     m_buffer = reinterpret_cast<cbor_mutable_data>(std::malloc(m_size));  // NOLINT cppcoreguidelines-no-malloc
     if (m_buffer == nullptr)
         throw std::bad_alloc();
-    std::memcpy(m_buffer, t_other.m_buffer, m_size);
+    std::memcpy(m_buffer, other.m_buffer, m_size);
 
     return *this;
 }
 
-Buffer::Buffer(Buffer&& t_other) noexcept
-    : m_size(t_other.m_size)
-    , m_capacity(t_other.m_capacity)
-    , m_buffer(t_other.m_buffer)
+Buffer::Buffer(Buffer&& other) noexcept
+    : m_size(other.m_size)
+    , m_capacity(other.m_capacity)
+    , m_buffer(other.m_buffer)
 {
-    t_other.m_size = 0;
-    t_other.m_capacity = 0;
-    t_other.m_buffer = nullptr;
+    other.m_size = 0;
+    other.m_capacity = 0;
+    other.m_buffer = nullptr;
 }
 
-Buffer& Buffer::operator=(Buffer&& t_other) noexcept
+Buffer& Buffer::operator=(Buffer&& other) noexcept
 {
-    if (&t_other == this)
+    if (&other == this)
         return *this;
 
     dtor_impl();
 
-    m_size = t_other.m_size;
-    m_capacity = t_other.m_capacity;
-    m_buffer = t_other.m_buffer;
+    m_size = other.m_size;
+    m_capacity = other.m_capacity;
+    m_buffer = other.m_buffer;
 
-    t_other.m_size = 0;
-    t_other.m_capacity = 0;
-    t_other.m_buffer = nullptr;
+    other.m_size = 0;
+    other.m_capacity = 0;
+    other.m_buffer = nullptr;
 
     return *this;
 }
@@ -177,71 +174,71 @@ static void check_ptr(void* ptr)
         throw std::bad_alloc();
 }
 
-Buffer::Buffer(const cbor_item_t* t_item)
+Buffer::Buffer(const cbor_item_t* item)
 {
-    m_size = cbor_serialize_alloc(t_item, &m_buffer, &m_capacity);
+    m_size = cbor_serialize_alloc(item, &m_buffer, &m_capacity);
     check_ptr(m_buffer);
 }
 
-Item build_uint8(std::uint8_t t_value)
+Item build_uint8(std::uint8_t value)
 {
-    cbor_item_t* item = cbor_build_uint8(t_value);
+    cbor_item_t* item = cbor_build_uint8(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_uint16(std::uint16_t t_value)
+Item build_uint16(std::uint16_t value)
 {
-    cbor_item_t* item = cbor_build_uint16(t_value);
+    cbor_item_t* item = cbor_build_uint16(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_uint32(std::uint32_t t_value)
+Item build_uint32(std::uint32_t value)
 {
-    cbor_item_t* item = cbor_build_uint32(t_value);
+    cbor_item_t* item = cbor_build_uint32(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_uint64(std::uint64_t t_value)
+Item build_uint64(std::uint64_t value)
 {
-    cbor_item_t* item = cbor_build_uint64(t_value);
+    cbor_item_t* item = cbor_build_uint64(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_negint8(std::uint8_t t_value)
+Item build_negint8(std::uint8_t value)
 {
-    cbor_item_t* item = cbor_build_negint8(t_value);
+    cbor_item_t* item = cbor_build_negint8(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_negint16(std::uint16_t t_value)
+Item build_negint16(std::uint16_t value)
 {
-    cbor_item_t* item = cbor_build_negint16(t_value);
+    cbor_item_t* item = cbor_build_negint16(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_negint32(std::uint32_t t_value)
+Item build_negint32(std::uint32_t value)
 {
-    cbor_item_t* item = cbor_build_negint32(t_value);
+    cbor_item_t* item = cbor_build_negint32(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_negint64(std::uint64_t t_value)
+Item build_negint64(std::uint64_t value)
 {
-    cbor_item_t* item = cbor_build_negint64(t_value);
+    cbor_item_t* item = cbor_build_negint64(value);
     check_ptr(item);
     return Item(item);
 }
 
-Item new_definite_array(std::size_t t_size)
+Item new_definite_array(std::size_t size)
 {
-    cbor_item_t* item = cbor_new_definite_array(t_size);
+    cbor_item_t* item = cbor_new_definite_array(size);
     check_ptr(item);
     return Item(item);
 }
@@ -253,41 +250,39 @@ Item new_indefinite_array()
     return Item(item);
 }
 
-Item build_string(const std::string& t_str)
+Item build_string(const std::string& str)
 {
-    cbor_item_t* item = cbor_build_stringn(t_str.c_str(), t_str.size());
+    cbor_item_t* item = cbor_build_stringn(str.c_str(), str.size());
     check_ptr(item);
     return Item(item);
 }
 
-Item build_string(std::string_view t_str)
+Item build_string(std::string_view str)
 {
-    cbor_item_t* item = cbor_build_stringn(t_str.data(), t_str.size());
+    cbor_item_t* item = cbor_build_stringn(str.data(), str.size());
     check_ptr(item);
     return Item(item);
 }
 
-Item build_string(const char* t_val)
+Item build_string(const char* val)
 {
-    cbor_item_t* item = cbor_build_string(t_val);
+    cbor_item_t* item = cbor_build_string(val);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_string(const char* t_val, std::size_t t_length)
+Item build_string(const char* val, std::size_t length)
 {
-    cbor_item_t* item = cbor_build_stringn(t_val, t_length);
+    cbor_item_t* item = cbor_build_stringn(val, length);
     check_ptr(item);
     return Item(item);
 }
 
-Item build_bytestring(cbor_data t_handle, std::size_t t_length)
+Item build_bytestring(cbor_data handle, std::size_t length)
 {
-    cbor_item_t* item = cbor_build_bytestring(t_handle, t_length);
+    cbor_item_t* item = cbor_build_bytestring(handle, length);
     check_ptr(item);
     return Item(item);
 }
 
-}  // namespace cbor
-
-}  // namespace hw1
+}  // namespace hw1::cbor

@@ -8,10 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace hw1
-{
-
-namespace cbor
+namespace hw1::cbor
 {
 
 class HW1_WRAPPERS_EXPORT Buffer
@@ -80,8 +77,6 @@ HW1_WRAPPERS_EXPORT Item build_string(const char* val, std::size_t length);
 
 HW1_WRAPPERS_EXPORT Item build_bytestring(cbor_data handle, std::size_t length);
 
-}  // namespace cbor
-
-}  // namespace hw1
+}  // namespace hw1::cbor
 
 #endif  // HW1_BINARY_SERIALIZATION_WRAPPERS_CBOR_WRAPPER_HPP_

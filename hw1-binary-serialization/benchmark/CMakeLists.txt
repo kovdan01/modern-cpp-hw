@@ -15,7 +15,8 @@ find_package(hw1-message REQUIRED)
 # boost program options
 find_package(Boost COMPONENTS COMPONENTS program_options REQUIRED)
 
-# message pack - header-only, no find_package needed
+# message pack
+find_package(msgpack REQUIRED)
 
 # google benchmark
 find_package(benchmark REQUIRED)
