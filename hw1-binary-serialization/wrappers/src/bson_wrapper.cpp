@@ -8,16 +8,6 @@
 namespace hw1::bson
 {
 
-static std::int64_t uint64_to_int64(std::uint64_t value) noexcept
-{
-    return *reinterpret_cast<std::int64_t*>(&value);
-}
-
-static std::uint64_t int64_to_uint64(std::int64_t value) noexcept
-{
-    return *reinterpret_cast<std::uint64_t*>(&value);
-}
-
 Base::~Base()
 {
     bson_destroy(&m_bson);
@@ -45,7 +35,7 @@ std::uint32_t Base::size() const noexcept
 
 void Base::append_uint64(std::string_view key, std::uint64_t value)
 {
-    append_int64(key, uint64_to_int64(value));
+    append_int64(key, static_cast<std::int64_t>(value));
 }
 
 void Base::append_int64(std::string_view key, std::int64_t value)
@@ -88,7 +78,7 @@ SubArray::~SubArray()
 
 void SubArray::append_uint64(std::uint64_t value)
 {
-    append_int64(uint64_to_int64(value));
+    append_int64(static_cast<std::int64_t>(value));
 }
 
 void SubArray::append_int64(std::int64_t value)
@@ -158,7 +148,7 @@ bool Iter::is_array() const noexcept
 std::uint64_t Iter::as_uint64() const noexcept
 {
     assert(is_uint64());
-    return int64_to_uint64(as_int64());
+    return static_cast<std::uint64_t>(as_int64());
 }
 
 std::int64_t Iter::as_int64() const noexcept
