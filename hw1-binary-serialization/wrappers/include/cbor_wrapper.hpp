@@ -77,6 +77,6 @@ inline Item build_bytestring(cbor_data handle, std::size_t length);
 
 }  // namespace hw1::cbor
 
-#include "cbor_wrapper.inc"
+#include "cbor_wrapper.ipp"
 
 #endif  // HW1_BINARY_SERIALIZATION_WRAPPERS_CBOR_WRAPPER_HPP_

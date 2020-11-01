@@ -17,9 +17,9 @@ find_package(bson-1.0 REQUIRED)
 
 add_library(${PROJECT_NAME} INTERFACE
     include/bson_wrapper.hpp
-    include/bson_wrapper.inc
+    include/bson_wrapper.ipp
     include/cbor_wrapper.hpp
-    include/cbor_wrapper.inc
+    include/cbor_wrapper.ipp
 )
 
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_20)

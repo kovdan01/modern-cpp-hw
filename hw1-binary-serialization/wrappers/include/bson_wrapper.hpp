@@ -124,6 +124,6 @@ private:
    std::string_view string_name(HW1_BSON_DETAIL_UNIQUE_ID(str, __LINE__).data(),           \
                                 HW1_BSON_DETAIL_UNIQUE_ID(ptr, __LINE__));
 
-#include "bson_wrapper.inc"
+#include "bson_wrapper.ipp"
     
 #endif  // HW1_BINARY_SERIALIZATION_WRAPPERS_BSON_WRAPPER_HPP_
