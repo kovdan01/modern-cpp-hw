@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.19)
 
 project(hw1-message
         VERSION 0.0.0
@@ -15,6 +15,7 @@ find_package(hw1-wrappers REQUIRED)
 
 add_library(${PROJECT_NAME}
     include/message.hpp
+    include/message.inc
     src/message.cpp
 )
 
