@@ -32,6 +32,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE hw1::wrappers)
 target_link_libraries(${PROJECT_NAME} PRIVATE hw1::message)
+target_link_libraries(${PROJECT_NAME} PRIVATE msgpackc-cxx)
 target_link_libraries(${PROJECT_NAME} PRIVATE Boost::program_options)
 target_link_libraries(${PROJECT_NAME} PRIVATE benchmark::benchmark)
 target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)

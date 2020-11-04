@@ -14,7 +14,8 @@ find_package(hw1-message REQUIRED)
 # boost program options
 find_package(Boost COMPONENTS COMPONENTS program_options REQUIRED)
 
-# message pack - header-only, no find_package needed
+# message pack
+find_package(msgpack REQUIRED)
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
@@ -23,6 +24,7 @@ add_executable(${PROJECT_NAME}
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE hw1::message)
+target_link_libraries(${PROJECT_NAME} PRIVATE msgpackc-cxx)
 target_link_libraries(${PROJECT_NAME} PRIVATE Boost::program_options)
 
 ntc_target(${PROJECT_NAME})

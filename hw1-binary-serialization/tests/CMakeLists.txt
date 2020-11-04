@@ -12,10 +12,11 @@ include(ntc-dev-build)
 find_package(hw1-wrappers REQUIRED)
 find_package(hw1-message REQUIRED)
 
-# message pack - header-only, no find_package needed
-
 # Catch2
 find_package(Catch2 REQUIRED)
+
+# message pack
+find_package(msgpack REQUIRED)
 
 # compile main only once to speed up compilation
 set(TESTS_MAIN_NAME tests-main)
@@ -38,6 +39,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PRIVATE Catch2::Catch2)
 target_link_libraries(${PROJECT_NAME} PRIVATE hw1::message)
 target_link_libraries(${PROJECT_NAME} PRIVATE hw1::wrappers)
+target_link_libraries(${PROJECT_NAME} PRIVATE msgpackc-cxx)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${TESTS_MAIN_NAME})
 
 ntc_target(${PROJECT_NAME})
