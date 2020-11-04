@@ -15,7 +15,7 @@ find_package(hw1-wrappers REQUIRED)
 
 add_library(${PROJECT_NAME}
     include/message.hpp
-    include/message.inc
+    include/message.ipp
     src/message.cpp
 )
 

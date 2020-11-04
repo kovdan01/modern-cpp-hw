@@ -122,6 +122,6 @@ private:
 
 }  // namespace hw1
 
-#include "message.inc"
+#include "message.ipp"
 
 #endif  // HW1_BINARY_SERIALIZATION_MESSAGE_MESSAGE_HPP_
