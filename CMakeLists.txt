@@ -14,6 +14,7 @@ include(ntc-dev-build)
 enable_testing()
 
 add_subdirectory(hw1-binary-serialization)
+add_subdirectory(hw2-socks5-server)
 
 include(FeatureSummary)
 feature_summary(WHAT ALL)
