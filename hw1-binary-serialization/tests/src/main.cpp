@@ -30,8 +30,9 @@ int main(int argc, char** argv) try
         return ret_code;
     }
 
-    if (Catch::list(std::make_shared<Catch::Config>(session.configData())))
-        return 0;
+    Catch::Option<std::size_t> count = Catch::list(std::make_shared<Catch::Config>(session.configData()));
+    if (count)
+        return count.valueOr(0);
 
     std::ifstream in_file(in_file_name, std::ios_base::binary | std::ios_base::ate);
     if (!in_file.is_open())

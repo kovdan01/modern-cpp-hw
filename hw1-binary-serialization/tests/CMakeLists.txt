@@ -44,9 +44,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${TESTS_MAIN_NAME})
 
 ntc_target(${PROJECT_NAME})
 
-file(CREATE_LINK
-    ${CMAKE_CURRENT_LIST_DIR}/test.data
-    ${CMAKE_CURRENT_BINARY_DIR}/test.data
+add_custom_command(
+    TARGET  ${PROJECT_NAME} PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_LIST_DIR}/test.data
+            ${CMAKE_CURRENT_BINARY_DIR}/
 )
 
 include(CTest)
