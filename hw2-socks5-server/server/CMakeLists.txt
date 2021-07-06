@@ -10,6 +10,10 @@ include(ntc-dev-build)
 
 find_package(hw2-wrappers)
 
+# tclap
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(tclap REQUIRED IMPORTED_TARGET tclap)
+
 add_executable(${PROJECT_NAME}
     src/main.cpp
 )
@@ -17,5 +21,6 @@ add_executable(${PROJECT_NAME}
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE hw2::wrappers)
+target_link_libraries(${PROJECT_NAME} INTERFACE PkgConfig::tclap)
 
 ntc_target(${PROJECT_NAME})
