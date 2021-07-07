@@ -1,6 +1,8 @@
 #ifndef HW2_SOCKS5_SERVER_WRAPPERS_SYSCALL_HPP_
 #define HW2_SOCKS5_SERVER_WRAPPERS_SYSCALL_HPP_
 
+#include <hw2-wrappers/export.h>
+
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -11,7 +13,7 @@
 namespace hw2::syscall_wrapper
 {
 
-class Error : public std::runtime_error
+class HW2_WRAPPERS_EXPORT Error : public std::runtime_error
 {
 public:
     using std::runtime_error::runtime_error;
@@ -53,6 +55,25 @@ inline void listen(int fd)
     {
         std::perror("listen");
         throw Error("listen");
+    }
+}
+
+inline void connect(int fd, const sockaddr_in& address)
+{
+    if (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
+    {
+        std::perror("connect");
+        throw Error("connect");
+    }
+}
+
+inline void setsockopt(int fd)
+{
+    static constexpr int sockoptval = 1;
+    if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &sockoptval, sizeof (sockoptval)) == -1)
+    {
+        std::perror("setsockopt");
+        throw Error("setsockopt");
     }
 }
 

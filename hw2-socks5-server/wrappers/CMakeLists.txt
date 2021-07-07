@@ -23,7 +23,7 @@ add_library(${PROJECT_NAME}
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::uring)
+target_link_libraries(${PROJECT_NAME} PUBLIC PkgConfig::uring)
 
 ntc_target(${PROJECT_NAME}
     ALIAS_NAME hw2::wrappers

@@ -1,3 +1,4 @@
+#include <io_uring.hpp>
 #include <socket.hpp>
 
 #include <tclap/CmdLine.h>
@@ -61,6 +62,92 @@ int main(int argc, char* argv[]) try
     std::optional<Params> params = parse_cmd_line(argc, argv);
     if (params == std::nullopt)
         return 1;
+
+    hw2::ReceiveSocket socket(params->port);
+
+    // initialize io_uring
+
+    hw2::io_uring::Ring ring(2048);
+
+    // add first accept SQE to monitor for new incoming connections
+    struct sockaddr_in client_address;
+    ring.accept(socket.fd, reinterpret_cast<struct sockaddr*>(&client_address), sizeof (client_address));
+
+    // start event loop
+    for (;;)
+    {
+        io_uring_submit_and_wait(ring.handle(), 1);
+        struct io_uring_cqe* cqe;
+        unsigned head;
+        unsigned count = 0;
+
+        // go through all CQEs
+        io_uring_for_each_cqe(ring.handle(), head, cqe)
+        {
+            ++count;
+            struct hw2::io_uring::ConnectionInfo conn_i;
+            std::memcpy(&conn_i, &cqe->user_data, sizeof(conn_i));
+
+            if (cqe->res == -ENOBUFS)
+            {
+                fprintf(stdout, "bufs in automatic buffer selection empty, this should not happen...\n");
+                fflush(stdout);
+                exit(1);
+            }
+
+            switch (conn_i.type)
+            {
+            case hw2::io_uring::ConnectionInfo::Type::PROVIDE_BUF:
+            {
+                if (cqe->res < 0)
+                {
+                    printf("cqe->res = %d\n", cqe->res);
+                    exit(1);
+                }
+                break;
+            }
+            case hw2::io_uring::ConnectionInfo::Type::ACCEPT:
+            {
+                int sock_conn_fd = cqe->res;
+                // only read when there is no error, >= 0
+                if (sock_conn_fd >= 0)
+                    ring.read(sock_conn_fd);
+
+                // new connected client; read data from socket and re-add accept to monitor for new connections
+                ring.accept(socket.fd, reinterpret_cast<struct sockaddr*>(&client_address), sizeof (client_address));
+                break;
+            }
+            case hw2::io_uring::ConnectionInfo::Type::READ:
+            {
+                int bytes_read = cqe->res;
+                int bid = cqe->flags >> 16;
+                if (cqe->res <= 0)
+                {
+                    // read failed, re-add the buffer
+                    ring.provide_buf(bid);
+                    // connection closed or error
+                    shutdown(conn_i.fd, SHUT_RDWR);
+                }
+                else
+                {
+                    // bytes have been read into bufs, now add write to socket sqe
+                    ring.write(conn_i.fd, bid, bytes_read);
+                }
+                break;
+            }
+            case hw2::io_uring::ConnectionInfo::Type::WRITE:
+            {
+                // write has been completed, first re-add the buffer
+                ring.provide_buf(conn_i.bid);
+                // add a new read for the existing connection
+                ring.read(conn_i.fd);
+                break;
+            }
+            }
+        }
+
+        io_uring_cq_advance(ring.handle(), count);
+    }
 }
 catch (const std::exception& e)
 {
