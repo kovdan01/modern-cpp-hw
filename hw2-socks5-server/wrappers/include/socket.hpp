@@ -10,6 +10,9 @@
 
 #include <cstdio>
 #include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <span>
 #include <stdexcept>
 
 namespace hw2
@@ -85,7 +88,39 @@ public:
         : detail::Socket()
         , m_address(detail::construct_address(host, port))
     {
+        std::cerr << "SendSocket constructor 1 enter" << std::endl;
+        std::cerr << "host: " << host << ", port: " << port << std::endl;
         syscall_wrapper::connect(fd, m_address);
+        std::cerr << "SendSocket constructor 1 leave" << std::endl;
+    }
+
+    SendSocket(sockaddr_in address)
+        : m_address(address)
+    {
+        std::cerr << "SendSocket constructor 2 enter" << std::endl;
+        m_address.sin_family = AF_INET;
+        std::cerr << "addr: " << ::inet_ntoa(address.sin_addr) << ":" << address.sin_port << std::endl;
+        syscall_wrapper::connect(fd, m_address);
+        std::cerr << "SendSocket constructor 2 leave" << std::endl;
+    }
+
+    void send(std::span<const byte_t> data)
+    {
+        std::cerr << "send data, size = " << data.size() << "\n{ ";
+        for (byte_t byte : data)
+            std::cerr << std::hex << std::internal << std::setfill('0') << std::showbase << std::setw(4) << static_cast<unsigned>(byte) << std::dec << ", ";
+        std::cerr << "}" << std::endl;
+        syscall_wrapper::send(fd, data);
+    }
+
+    ssize_t recv(std::span<byte_t> data)
+    {
+        ssize_t len = syscall_wrapper::recv(fd, data);
+        std::cerr << "recv data, size = " << len << "\n{ ";
+        for (int i = 0; i < len; ++i)
+            std::cerr << std::hex << std::internal << std::setfill('0') << std::showbase << std::setw(4) << static_cast<unsigned>(data[i]) << std::dec << ", ";
+        std::cerr << "}" << std::endl;
+        return len;
     }
 
 private:

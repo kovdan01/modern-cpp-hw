@@ -3,8 +3,10 @@
 
 #include <tclap/CmdLine.h>
 
+#include <memory>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 
 struct Params
 {
@@ -73,6 +75,14 @@ int main(int argc, char* argv[]) try
     struct sockaddr_in client_address;
     ring.accept(socket.fd, reinterpret_cast<struct sockaddr*>(&client_address), sizeof (client_address));
 
+    std::cerr << "SOCKET " << socket.fd << std::endl;
+
+    //hw2::io_uring::SOCKS5Session session(ring);
+
+    std::unordered_map<int, hw2::io_uring::SOCKS5Session> sessions;
+
+    //std::unordered_set<std::unique_ptr<hw2::io_uring::Session>> sessions;
+
     // start event loop
     for (;;)
     {
@@ -99,6 +109,7 @@ int main(int argc, char* argv[]) try
             {
             case hw2::io_uring::ConnectionInfo::Type::PROVIDE_BUF:
             {
+                std::cerr << "provide buf completed" << std::endl;
                 if (cqe->res < 0)
                 {
                     printf("cqe->res = %d\n", cqe->res);
@@ -109,9 +120,19 @@ int main(int argc, char* argv[]) try
             case hw2::io_uring::ConnectionInfo::Type::ACCEPT:
             {
                 int sock_conn_fd = cqe->res;
+                std::cerr << "accept completed: fd " << sock_conn_fd << std::endl;
                 // only read when there is no error, >= 0
                 if (sock_conn_fd >= 0)
+                {
+                    if (sessions.contains(sock_conn_fd))
+                        sessions.erase(sock_conn_fd);
+                    sessions.emplace(sock_conn_fd, hw2::io_uring::SOCKS5Session(ring, sock_conn_fd));
                     ring.read(sock_conn_fd);
+                }
+                else
+                {
+                    std::perror("accept");
+                }
 
                 // new connected client; read data from socket and re-add accept to monitor for new connections
                 ring.accept(socket.fd, reinterpret_cast<struct sockaddr*>(&client_address), sizeof (client_address));
@@ -119,33 +140,42 @@ int main(int argc, char* argv[]) try
             }
             case hw2::io_uring::ConnectionInfo::Type::READ:
             {
+                std::cerr << "read completed" << std::endl;
                 int bytes_read = cqe->res;
-                int bid = cqe->flags >> 16;
+                int buffer_id = cqe->flags >> 16;
+                std::cerr << "read: buffer id " << buffer_id << std::endl;
+                std::cerr << "read: fd " << conn_i.fd << std::endl;
                 if (cqe->res <= 0)
                 {
+                    std::cerr << "read failed, re-add the buffer" << std::endl;
                     // read failed, re-add the buffer
-                    ring.provide_buf(bid);
+                    //ring.read(conn_i.fd);
+                    ring.provide_buf(buffer_id);
                     // connection closed or error
-                    shutdown(conn_i.fd, SHUT_RDWR);
+                    //::shutdown(conn_i.fd, SHUT_RDWR);
                 }
                 else
                 {
                     // bytes have been read into bufs, now add write to socket sqe
-                    ring.write(conn_i.fd, bid, bytes_read);
+                    sessions.at(conn_i.fd).process_request(buffer_id, bytes_read);
+                    //ring.write(conn_i.fd, buffer_id, bytes_read);
                 }
                 break;
             }
             case hw2::io_uring::ConnectionInfo::Type::WRITE:
             {
+                std::cerr << "write completed" << std::endl;
+                std::cerr << "write: buffer_id " << conn_i.buffer_id << std::endl;
+                std::cerr << "write: fd " << conn_i.fd << std::endl;
                 // write has been completed, first re-add the buffer
-                ring.provide_buf(conn_i.bid);
+                ring.provide_buf(conn_i.buffer_id);
                 // add a new read for the existing connection
                 ring.read(conn_i.fd);
                 break;
             }
             }
         }
-
+        std::cerr << "PROCESSED " << count << " COMPLETION EVENTS" << std::endl;
         io_uring_cq_advance(ring.handle(), count);
     }
 }

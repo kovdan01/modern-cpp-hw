@@ -8,7 +8,17 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <iostream>
+#include <span>
 #include <stdexcept>
+#include <thread>
+
+namespace hw2
+{
+
+using byte_t = unsigned char;
+
+}  // namespace hw2
 
 namespace hw2::syscall_wrapper
 {
@@ -60,10 +70,11 @@ inline void listen(int fd)
 
 inline void connect(int fd, const sockaddr_in& address)
 {
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
+    while (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
     {
-        std::perror("connect");
-        throw Error("connect");
+        std::perror("connect error");
+        std::cerr << "connect retry..." << std::endl;
+        //throw Error("connect");
     }
 }
 
@@ -75,6 +86,56 @@ inline void setsockopt(int fd)
         std::perror("setsockopt");
         throw Error("setsockopt");
     }
+}
+
+inline void send(int fd, std::span<const byte_t> data)
+{
+    // TODO: send in while (data might not be fully transported)
+    std::size_t total_sent = 0;
+    for (;;)
+    {
+        ssize_t len = ::send(fd, data.data(), data.size(), 0);
+        if (len == -1)
+        {
+            std::perror("send");
+            throw Error("send");
+        }
+        total_sent += len;
+        if (total_sent == data.size())
+            break;
+    }
+    ssize_t len = ::send(fd, data.data(), data.size(), 0);
+    if (len != data.size())
+    {
+        std::cerr << "tried to send " << data.size() << " bytes, got " << len << std::endl;
+        //std::perror("send");
+        //throw Error("send");
+    }
+}
+
+inline ssize_t recv(int fd, std::span<byte_t> data)
+{
+    // TODO: recv in while (data might not be fully transported)
+    ssize_t len = 0;
+    while (len == 0)
+    {
+        len = ::recv(fd, data.data(), data.size(), 0/*MSG_WAITALL*/);
+        if (len == -1)
+        {
+            std::perror("recv");
+            throw Error("recv");
+        }
+        if (len != data.size())
+        {
+            std::cerr << "tried to recv " << data.size() << " bytes, got " << len << std::endl;
+            //std::perror("recv");
+            //throw Error("recv");
+        }
+        //break;
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(1s);
+    }
+    return len;
 }
 
 }  // namespace hw2::syscall_wrapper
