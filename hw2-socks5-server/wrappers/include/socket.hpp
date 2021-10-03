@@ -45,6 +45,16 @@ public:
     const int fd;
 };
 
+inline sockaddr_in construct_address(in_addr_t addr, in_port_t port)
+{
+    sockaddr_in address;
+    std::memset(&address, 0, sizeof (address));
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = ::htonl(addr);
+    address.sin_port = ::htons(port);
+    return address;
+}
+
 inline sockaddr_in construct_address(in_port_t port)
 {
     sockaddr_in address;
@@ -67,6 +77,25 @@ public:
         syscall_wrapper::setsockopt(fd);
         syscall_wrapper::bind(fd, m_address);
         syscall_wrapper::listen(fd, maxqueue);
+    }
+
+    const sockaddr_in& address() const
+    {
+        return m_address;
+    }
+
+private:
+    sockaddr_in m_address;
+};
+
+class HW2_WRAPPERS_EXPORT ExternalConnection : public detail::Socket
+{
+public:
+    ExternalConnection(in_addr_t addr, in_port_t port)
+        : detail::Socket()
+        , m_address(detail::construct_address(addr, port))
+    {
+        syscall_wrapper::bind(fd, m_address);
     }
 
     const sockaddr_in& address() const
