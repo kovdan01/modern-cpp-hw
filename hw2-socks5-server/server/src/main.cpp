@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) try
     if (params == std::nullopt)
         return 1;
 
-    int nconnections = 1024;
+    int nconnections = 1;
     hw2::Buffers buffers(nconnections);
 
     hw2::MainSocket server_socket(params->port, nconnections);
