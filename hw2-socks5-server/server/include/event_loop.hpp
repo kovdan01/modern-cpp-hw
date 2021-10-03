@@ -101,6 +101,7 @@ public:
     }
 
     void write();
+    void read();
     void read_some(std::size_t n);
 
     ~Client()
@@ -269,7 +270,6 @@ public:
     void add_read_request(Client* client)
     {
         struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-        //std::size_t current_length = m_buffers.length(client->buffer_index);
         io_uring_prep_recv(sqe, client->fd, client->buffer().data(),
                            Buffers::BUFFER_SIZE, 0);
         client->pending_event_type() = EventType::READ;
@@ -293,6 +293,19 @@ private:
     struct io_uring m_ring;
     std::unordered_set<Client::Ptr> m_clients;
 };
+
+inline void Client::read()
+{
+    m_read_check = [this](){ return !m_read_buffer.empty(); };
+    if (m_read_check())
+    {
+        handle_read(0);
+    }
+    else
+    {
+        m_server.add_read_request(this);
+    }
+}
 
 inline void Client::read_some(std::size_t n)
 {
@@ -383,7 +396,7 @@ inline void Client::handle_read(std::size_t nread)
         std::memcpy(&m_port, m_read_buffer.data() + 4, 2);
         std::cerr << "ADDR: " << m_ipv4_addr << ", PORT: " << m_port << std::endl;
         this->consume_bytes_from_read_buffer(6);
-        //m_connection = std::make_unique<ExternalConnection>(m_ipv4_addr, m_port);
+        m_connection = std::make_unique<ExternalConnection>(m_ipv4_addr, m_port);
         m_write_buffer.resize(10);
         m_write_buffer[0] = 0x05;  // protocol version
         m_write_buffer[1] = 0x00;  // request granted
@@ -431,7 +444,7 @@ inline void Client::handle_write(std::size_t nwrite)
     case State::READING_ADDRESS:
         std::cerr << "After reply address accepted" << std::endl;
         m_state = State::READING_USER_REQUESTS;
-        this->read_some(1);
+        this->read();
         break;
     case State::READING_CLIENT_GREETING:
         assert(false);
