@@ -15,6 +15,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(tclap REQUIRED IMPORTED_TARGET tclap)
 
 add_executable(${PROJECT_NAME}
+    include/event_loop.hpp
+    include/utils.hpp
+    src/event_loop.cpp
     src/main.cpp
 )
 

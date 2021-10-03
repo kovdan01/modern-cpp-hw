@@ -49,9 +49,9 @@ inline void bind(int fd, const sockaddr_in& address)
     }
 }
 
-inline void listen(int fd)
+inline void listen(int fd, int maxqueue = 1)
 {
-    if (::listen(fd, 1) < 0)
+    if (::listen(fd, maxqueue) < 0)
     {
         std::perror("listen");
         throw Error("listen");

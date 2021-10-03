@@ -45,47 +45,33 @@ public:
     const int fd;
 };
 
-inline sockaddr_in construct_address(std::string_view host, in_port_t port)
+inline sockaddr_in construct_address(in_port_t port)
 {
     sockaddr_in address;
     std::memset(&address, 0, sizeof (address));
     address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = ::htons(port);
-    address.sin_addr.s_addr = ::inet_addr(host.data());
     return address;
 }
 
 }  // namespace detail
 
-class HW2_WRAPPERS_EXPORT ReceiveSocket : public detail::Socket
+class HW2_WRAPPERS_EXPORT MainSocket : public detail::Socket
 {
 public:
-    ReceiveSocket(in_port_t port)
+    MainSocket(in_port_t port, int maxqueue)
         : detail::Socket()
-        , m_address(detail::construct_address("127.0.0.1", port))
+        , m_address(detail::construct_address(port))
     {
         syscall_wrapper::setsockopt(fd);
         syscall_wrapper::bind(fd, m_address);
-        syscall_wrapper::listen(fd);
+        syscall_wrapper::listen(fd, maxqueue);
     }
 
     const sockaddr_in& address() const
     {
         return m_address;
-    }
-
-private:
-    sockaddr_in m_address;
-};
-
-class HW2_WRAPPERS_EXPORT SendSocket : public detail::Socket
-{
-public:
-    SendSocket(std::string_view host, in_port_t port)
-        : detail::Socket()
-        , m_address(detail::construct_address(host, port))
-    {
-        syscall_wrapper::connect(fd, m_address);
     }
 
 private:
