@@ -210,7 +210,6 @@ public:
 
             if (UNLIKELY(cqe->res < 0))
             {
-                Client* client = reinterpret_cast<Client*>(cqe->user_data);
                 std::cerr << std::strerror(-cqe->res);
             }
             else
@@ -246,6 +245,11 @@ public:
                         if (LIKELY(cqe->res))  // non-empty request?
                         {
                             client->handle_read(cqe->res);
+                        }
+                        else
+                        {
+                            // assume that empty read indicates client disconnected
+                            m_clients.erase(client->iterator());
                         }
                         break;
 
@@ -408,6 +412,7 @@ inline void Client::handle_read(std::size_t nread)
         break;
     case State::READING_USER_REQUESTS:
     {
+        this->consume_bytes_from_read_buffer(nread);
         std::cerr << "Reading user requests" << std::endl;
         char date[32];
         std::time_t t = std::time(nullptr);
@@ -454,6 +459,7 @@ inline void Client::handle_write(std::size_t nwrite)
         break;
     case State::READING_USER_REQUESTS:
         std::cerr << "After reply user requests" << std::endl;
+        this->read();
         break;
     }
 }
