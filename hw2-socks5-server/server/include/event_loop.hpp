@@ -18,7 +18,6 @@
 #include <queue>
 #include <span>
 #include <vector>
-#include <unordered_set>
 
 #define REPLY_200 "HTTP/1.0 200 OK\r\nServer: otus-io-uring\r\nDate: %s\r\n\
 Content-Type: text/plain\r\nContent-Length: 12\r\n\r\nHello world!\r\n"
@@ -33,6 +32,14 @@ enum class EventType
     ACCEPT = 0,
     READ,
     WRITE,
+};
+
+class Client;
+
+struct Event
+{
+    Client* client;
+    EventType type;
 };
 
 class Buffers
@@ -87,9 +94,6 @@ class IoUring;
 class Client
 {
 public:
-    using Ptr = std::unique_ptr<Client>;
-    using iterator_t = std::unordered_set<Ptr>::iterator;
-
     Client(int fd, std::size_t buffer_index, Buffers& buffers, IoUring& server)
         : buffer_index(buffer_index)
         , fd(fd)
@@ -110,12 +114,6 @@ public:
         m_buffers.return_buffer(buffer_index);
     }
 
-    EventType pending_event_type() const { return m_pending_event_type; }
-    EventType& pending_event_type() { return m_pending_event_type; }
-
-    iterator_t iterator() const { return m_iterator; }
-    iterator_t& iterator() { return m_iterator; }
-
     std::span<byte_t> buffer() { return m_buffer; }
     std::span<const byte_t> buffer() const { return m_buffer; }
 
@@ -126,8 +124,6 @@ public:
     const int fd;
 
 private:
-    EventType m_pending_event_type;
-    iterator_t m_iterator;
     Buffers& m_buffers;
     IoUring& m_server;
     std::span<byte_t> m_buffer;
@@ -221,10 +217,7 @@ public:
                     if (LIKELY(buffer_index != std::size_t(-1)))
                     {
                         int fd = cqe->res;
-                        auto [it, was_emplaced] = m_clients.emplace(std::make_unique<Client>(fd, buffer_index, m_buffers, *this));
-                        assert(was_emplaced);
-                        const Client::Ptr& client = *it;
-                        client->iterator() = it;
+                        Client* client = new Client{fd, buffer_index, m_buffers, *this};
                         client->read_some(3);
                     }
                     else
@@ -235,8 +228,8 @@ public:
                 }
                 else
                 {
-                    Client* client = reinterpret_cast<Client*>(cqe->user_data);
-                    switch (client->pending_event_type())
+                    Event* event = reinterpret_cast<Event*>(cqe->user_data);
+                    switch (event->type)
                     {
                     case EventType::ACCEPT:
                         assert(false);
@@ -244,19 +237,20 @@ public:
                     case EventType::READ:
                         if (LIKELY(cqe->res))  // non-empty request?
                         {
-                            client->handle_read(cqe->res);
+                            event->client->handle_read(cqe->res);
                         }
                         else
                         {
                             // assume that empty read indicates client disconnected
-                            m_clients.erase(client->iterator());
+                            delete event->client;
                         }
                         break;
 
                     case EventType::WRITE:
-                        client->handle_write(cqe->res);
+                        event->client->handle_write(cqe->res);
                         break;
                     }
+                    delete event;
                 }
             }
             io_uring_cqe_seen(&m_ring, cqe);
@@ -276,8 +270,8 @@ public:
         struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
         io_uring_prep_recv(sqe, client->fd, client->buffer().data(),
                            Buffers::BUFFER_SIZE, 0);
-        client->pending_event_type() = EventType::READ;
-        io_uring_sqe_set_data(sqe, client);
+        Event* event = new Event{client, EventType::READ};
+        io_uring_sqe_set_data(sqe, event);
         io_uring_submit(&m_ring);
     }
 
@@ -286,8 +280,8 @@ public:
         struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
         io_uring_prep_send(sqe, client->fd, client->buffer().data(), nbytes,
                            MSG_DONTWAIT | (more_data ? MSG_MORE : 0));
-        client->pending_event_type() = EventType::WRITE;
-        io_uring_sqe_set_data(sqe, client);
+        Event* event = new Event{client, EventType::WRITE};
+        io_uring_sqe_set_data(sqe, event);
         io_uring_submit(&m_ring);
     }
 
@@ -295,7 +289,6 @@ private:
     const MainSocket& m_socket;
     Buffers m_buffers;
     struct io_uring m_ring;
-    std::unordered_set<Client::Ptr> m_clients;
 };
 
 inline void Client::read()
@@ -463,18 +456,6 @@ inline void Client::handle_write(std::size_t nwrite)
         break;
     }
 }
-
-//inline void Client::handle_read(std::size_t nread)
-//{
-//    char date[32];
-//    std::time_t t = std::time(nullptr);
-//    struct std::tm* tm = std::gmtime(&t);
-//    std::strftime(date, sizeof(date), "%a, %d %b %Y %H:%M:%S GMT", tm);
-
-//    int n = std::snprintf(m_buffers.buffer(buffer_index).data(), Buffers::BUFFER_SIZE, REPLY_200, date);
-
-//    m_server.add_write_request(this, n, true);
-//}
 
 }  // namespace hw2
 
