@@ -68,10 +68,11 @@ int main(int argc, char* argv[]) try
 
     hw2::MainSocket server_socket(params->port, nconnections);
     hw2::IoUring uring(server_socket, nconnections);
+    // TODO: handle signals properly
     ::signal(SIGPIPE, SIG_IGN);
     uring.event_loop();
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 catch (const std::exception& e)
 {

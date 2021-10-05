@@ -33,13 +33,9 @@ public:
         {
             syscall_wrapper::close(fd);
         }
-        catch (const std::exception& e)
-        {
-            // TODO
-        }
         catch (...)
         {
-            // TODO
+            std::exit(EXIT_FAILURE);
         }
     }
 

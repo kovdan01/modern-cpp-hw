@@ -84,7 +84,7 @@ IoUring::IoUring(const MainSocket& socket, int nconnections)
     : m_socket(socket)
     , m_buffer_pool(nconnections)
 {
-    int poll = false; // kernel polling, root required
+    int poll = false;  // kernel polling, root required
 
     if (poll)
     {
@@ -300,8 +300,12 @@ void Client::write_to_client()
 void Client::read_client_greeting()
 {
     std::cerr << "Reading client greeting" << std::endl;
-    // TODO: handle properly (version, must be 0x05)
-    assert(m_read_buffer[0] == 0x05);
+    byte_t version = m_read_buffer[0];
+    if (version != 0x05)
+    {
+        this->send_fail_message();
+        return;
+    }
     m_auth_methods_count = m_read_buffer[1];
     this->consume_bytes_from_read_buffer(2);
     m_state = State::READING_AUTH_METHODS;
@@ -313,9 +317,16 @@ void Client::read_auth_methods()
     std::cerr << "Reading auth methods" << std::endl;
     char* from = m_read_buffer.data();
     char* to = m_read_buffer.data() + m_auth_methods_count;
-    // TODO: handle properly (0x00 is no auth)
-    assert(std::find(from, to, 0x00) != to);
-    m_auth_method = 0x00;
+    // only 0x00 (no auth) is supported
+    if (std::find(from, to, 0x00) == to)
+    {
+        m_auth_method = 0xFF;  // no acceptable methods were offered
+        fail = true;
+    }
+    else
+    {
+        m_auth_method = 0x00;
+    }
     this->consume_bytes_from_read_buffer(m_auth_methods_count);
     m_write_client_buffer.resize(2);
     m_write_client_buffer[0] = 0x05;
@@ -326,17 +337,26 @@ void Client::read_auth_methods()
 void Client::read_client_connection_request()
 {
     std::cerr << "Reading client connection request" << std::endl;
-    // TODO: handle properly (version, must be 0x05)
-    assert(m_read_buffer[0] == 0x05);
+    byte_t version = m_read_buffer[0];
+    if (version != 0x05)
+    {
+        this->send_fail_message();
+        return;
+    }
 
-    int command = m_read_buffer[1];
+    byte_t command = m_read_buffer[1];
     // TODO: handle properly
     assert(command == COMMAND_CONNECT);
     m_command = COMMAND_CONNECT;
 
-    // TODO: handle properly (reserved, must be 0x00);
-    assert(m_read_buffer[2] == 0x00);
-    int address_type = m_read_buffer[3];
+    byte_t reserved = m_read_buffer[2];
+    if (reserved != 0x00)
+    {
+        this->send_fail_message();
+        return;
+    }
+
+    byte_t address_type = m_read_buffer[3];
 
     this->consume_bytes_from_read_buffer(4);
 
@@ -482,10 +502,11 @@ void Client::read_address()
                 this->connect_ipv6_destination();
                 break;
             }
+#ifndef DNDEBUG
             default:
-                // TODO: handle properly
                 assert(false);
                 break;
+#endif
             }
         }
         break;
@@ -596,11 +617,13 @@ void Client::handle_client_write(std::size_t nwrite)
 
 void Client::handle_dst_read(std::size_t nread)
 {
+    std::cerr << "DST READ " << nread << std::endl;
     m_server.add_client_write_request(this, nread);
 }
 
-void Client::handle_dst_write(std::size_t /*nwrite*/)
+void Client::handle_dst_write(std::size_t nwrite)
 {
+    std::cerr << "DST WRITE " << nwrite << std::endl;
     m_server.add_client_read_request(this);
 }
 
@@ -611,8 +634,15 @@ void Client::consume_bytes_from_read_buffer(std::size_t nread)
 
 Client::~Client()
 {
-    syscall_wrapper::close(fd);
-    m_buffer_pool.return_buffer(buffer_index);
+    try
+    {
+        syscall_wrapper::close(fd);
+        m_buffer_pool.return_buffer(buffer_index);
+    }
+    catch (...)
+    {
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 }  // namespace hw2
