@@ -20,15 +20,25 @@ public:
     ~Error() override;
 };
 
-inline int socket()
+inline int socket(int address_family)
 {
-    int sfd = ::socket(AF_INET, SOCK_STREAM, 0);
+    int sfd = ::socket(address_family, SOCK_STREAM, 0);
     if (sfd == -1)
     {
         std::perror("socket");
         throw Error("socket");
     }
     return sfd;
+}
+
+inline int socket4()
+{
+    return socket(AF_INET);
+}
+
+inline int socket6()
+{
+    return socket(AF_INET6);
 }
 
 inline void close(int fd)
@@ -58,12 +68,21 @@ inline void listen(int fd, int maxqueue = 1)
     }
 }
 
-inline void connect(int fd, const sockaddr_in& address)
+inline void connect4(int fd, const sockaddr_in& address)
 {
     if (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
     {
-        std::perror("connect");
-        throw Error("connect");
+        std::perror("connect4");
+        throw Error("connect4");
+    }
+}
+
+inline void connect6(int fd, const sockaddr_in6& address)
+{
+    if (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
+    {
+        std::perror("connect6");
+        throw Error("connect6");
     }
 }
 
