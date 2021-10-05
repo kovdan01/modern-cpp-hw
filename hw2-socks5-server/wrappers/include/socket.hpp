@@ -67,12 +67,12 @@ public:
 namespace detail
 {
 
-inline sockaddr_in construct_address_ipv4(in_addr_t addr, in_port_t port)
+inline sockaddr_in construct_address_ipv4(in_addr addr, in_port_t port)
 {
     sockaddr_in address;
     std::memset(&address, 0, sizeof (address));
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = addr;
+    std::memcpy(&address.sin_addr, &addr, sizeof(in_addr));
     address.sin_port = port;
     return address;
 }
@@ -82,14 +82,14 @@ inline sockaddr_in6 construct_address_ipv6(in6_addr addr, in_port_t port)
     sockaddr_in6 address;
     std::memset(&address, 0, sizeof (address));
     address.sin6_family = AF_INET6;
-    std::memcpy(&address.sin6_addr, &addr, 16);
+    std::memcpy(&address.sin6_addr, &addr, sizeof(in6_addr));
     address.sin6_port = port;
     return address;
 }
 
 inline sockaddr_in construct_address_local(in_port_t port)
 {
-    return construct_address_ipv4(INADDR_ANY, ::htons(port));
+    return construct_address_ipv4({INADDR_ANY}, ::htons(port));
 }
 
 }  // namespace detail
@@ -118,7 +118,7 @@ private:
 class HW2_WRAPPERS_EXPORT ExternalConnectionIPv4 : public SocketIPv4
 {
 public:
-    ExternalConnectionIPv4(in_addr_t addr, in_port_t port)
+    ExternalConnectionIPv4(in_addr addr, in_port_t port)
         : SocketIPv4()
         , m_address(detail::construct_address_ipv4(addr, port))
     {
