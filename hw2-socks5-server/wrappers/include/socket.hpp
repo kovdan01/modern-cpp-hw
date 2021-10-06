@@ -25,9 +25,9 @@ public:
     Socket(int fd);
     virtual ~Socket();
 
-    virtual const sockaddr* address() const = 0;
-    virtual sockaddr* address() = 0;
-    virtual socklen_t address_length() const = 0;
+    [[nodiscard]] virtual const sockaddr* address() const = 0;
+    [[nodiscard]] virtual sockaddr* address() = 0;
+    [[nodiscard]] virtual socklen_t address_length() const = 0;
 
     const int fd;
 };
@@ -38,9 +38,9 @@ public:
     SocketIPv4(in_addr addr, in_port_t port);
     ~SocketIPv4() override;
 
-    const sockaddr* address() const override;
-    sockaddr* address() override;
-    socklen_t address_length() const override;
+    [[nodiscard]] const sockaddr* address() const override;
+    [[nodiscard]] sockaddr* address() override;
+    [[nodiscard]] socklen_t address_length() const override;
 
 protected:
     sockaddr_in m_address;
@@ -52,9 +52,9 @@ public:
     SocketIPv6(in6_addr addr, in_port_t port);
     ~SocketIPv6() override;
 
-    const sockaddr* address() const override;
-    sockaddr* address() override;
-    socklen_t address_length() const override;
+    [[nodiscard]] const sockaddr* address() const override;
+    [[nodiscard]] sockaddr* address() override;
+    [[nodiscard]] socklen_t address_length() const override;
 
 protected:
     sockaddr_in6 m_address;
@@ -63,7 +63,7 @@ protected:
 class HW2_WRAPPERS_EXPORT MainSocket : public SocketIPv4
 {
 public:
-    MainSocket(in_port_t port, int maxqueue);
+    MainSocket(in_port_t port, std::size_t maxqueue);
     ~MainSocket() override;
 };
 

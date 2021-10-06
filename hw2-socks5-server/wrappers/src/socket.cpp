@@ -86,7 +86,7 @@ socklen_t SocketIPv6::address_length() const
     return sizeof(m_address);
 }
 
-MainSocket::MainSocket(in_port_t port, int maxqueue)
+MainSocket::MainSocket(in_port_t port, std::size_t maxqueue)
     : SocketIPv4({INADDR_ANY}, ::htons(port))
 {
     syscall_wrapper::setsockopt_reuseaddr(fd);

@@ -144,7 +144,7 @@ void IoUring::handle_accept(const io_uring_cqe* cqe)
     }
     catch (const BufferPool::InsufficientBuffersException&)
     {
-        std::cerr << "Server capacity exceeded\n";
+        std::cerr << "Server capacity exceeded" << std::endl;
         syscall_wrapper::close(fd);
         return;
     }
@@ -158,14 +158,14 @@ void IoUring::event_loop()
 
     for (;;)
     {
-        std::cerr << "THREAD ID: " <<  std::this_thread::get_id() << std::endl;
+        //std::cerr << "THREAD ID: " <<  std::this_thread::get_id() << std::endl;
         io_uring_cqe* cqe;
         if (UNLIKELY(io_uring_wait_cqe(&m_ring, &cqe) < 0))
             throw std::runtime_error("io_uring_wait_cqe");
 
         if (UNLIKELY(cqe->res < 0))
         {
-            std::cerr << "cqe fail: " << std::strerror(-cqe->res) << std::endl;
+            //std::cerr << "cqe fail: " << std::strerror(-cqe->res) << std::endl;
             if (cqe->user_data != 0)
             {
                 Event* event = reinterpret_cast<Event*>(cqe->user_data);
@@ -337,7 +337,7 @@ void Client::write_to_client()
 
 void Client::read_client_greeting()
 {
-    std::cerr << "Reading client greeting" << std::endl;
+    //std::cerr << "Reading client greeting" << std::endl;
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
@@ -352,9 +352,9 @@ void Client::read_client_greeting()
 
 void Client::read_auth_methods()
 {
-    std::cerr << "Reading auth methods" << std::endl;
-    char* from = m_read_buffer.data();
-    char* to = m_read_buffer.data() + m_auth_methods_count;
+    //std::cerr << "Reading auth methods" << std::endl;
+    byte_t* from = m_read_buffer.data();
+    byte_t* to = m_read_buffer.data() + m_auth_methods_count;
     // only 0x00 (no auth) is supported
     if (std::find(from, to, 0x00) == to)
     {
@@ -374,7 +374,7 @@ void Client::read_auth_methods()
 
 void Client::read_client_connection_request()
 {
-    std::cerr << "Reading client connection request" << std::endl;
+    //std::cerr << "Reading client connection request" << std::endl;
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
@@ -476,19 +476,17 @@ void Client::connect_ipv6_destination()
     }
     m_state = State::CONNECTING_TO_DESTINATION;
     m_server.add_dst_connect_request(this);
-
-
 }
 
 void Client::read_address()
 {
-    std::cerr << "Reading address" << std::endl;
+    //std::cerr << "Reading address" << std::endl;
     switch (m_address_type)
     {
     case ADDRESS_TYPE_IPV4:
         std::memcpy(&m_ipv4_address, m_read_buffer.data(), 4);
         std::memcpy(&m_port, m_read_buffer.data() + 4, 2);
-        std::cerr << "ADDR: " << m_ipv4_address.s_addr << ", PORT: " << m_port << std::endl;
+        //std::cerr << "ADDR: " << m_ipv4_address.s_addr << ", PORT: " << m_port << std::endl;
         this->consume_bytes_from_read_buffer(6);
         this->connect_ipv4_destination();
         break;
@@ -501,43 +499,36 @@ void Client::read_address()
 
         hostent* he;
         he = ::gethostbyname(m_domain_name.c_str());
-        if (he == nullptr)
+        if (he == nullptr || he->h_addr_list[0] == nullptr)
         {
             this->send_fail_message();
             ::herror("gethostbyname");
             return;
         }
-        else
+
+        switch (he->h_addrtype)
         {
-            if (he->h_addr_list[0] == nullptr)
-            {
-                this->send_fail_message();
-                ::herror("gethostbyname");
-            }
-            switch (he->h_addrtype)
-            {
-            case AF_INET:
-            {
-                m_address_type = ADDRESS_TYPE_IPV4;
-                in_addr* addr = reinterpret_cast<in_addr*>(he->h_addr_list[0]);
-                std::memcpy(&m_ipv4_address, &addr, sizeof(in_addr));
-                this->connect_ipv4_destination();
-                break;
-            }
-            case AF_INET6:
-            {
-                m_address_type = ADDRESS_TYPE_IPV6;
-                in6_addr* addr = reinterpret_cast<in6_addr*>(he->h_addr_list[0]);
-                std::memcpy(&m_ipv6_address, &addr, sizeof(in6_addr));
-                this->connect_ipv6_destination();
-                break;
-            }
+        case AF_INET:
+        {
+            m_address_type = ADDRESS_TYPE_IPV4;
+            in_addr* addr = reinterpret_cast<in_addr*>(he->h_addr_list[0]);
+            std::memcpy(&m_ipv4_address, &addr, sizeof(in_addr));
+            this->connect_ipv4_destination();
+            break;
+        }
+        case AF_INET6:
+        {
+            m_address_type = ADDRESS_TYPE_IPV6;
+            in6_addr* addr = reinterpret_cast<in6_addr*>(he->h_addr_list[0]);
+            std::memcpy(&m_ipv6_address, &addr, sizeof(in6_addr));
+            this->connect_ipv6_destination();
+            break;
+        }
 #ifndef NDEBUG
-            default:
-                assert(false);
-                break;
+        default:
+            assert(false);
+            break;
 #endif
-            }
         }
         break;
     }
@@ -545,7 +536,7 @@ void Client::read_address()
     case ADDRESS_TYPE_IPV6:
         std::memcpy(&m_ipv6_address, m_read_buffer.data(), 16);
         std::memcpy(&m_port, m_read_buffer.data() + 16, 2);
-        std::cerr << "ADDR: IPv6, PORT: " << m_port << std::endl;
+        //std::cerr << "ADDR: IPv6, PORT: " << m_port << std::endl;
         this->consume_bytes_from_read_buffer(18);
         this->connect_ipv6_destination();
         break;
@@ -614,7 +605,7 @@ void Client::handle_client_write(std::size_t nwrite)
         return;
     }
 
-    std::cerr << "client nwrite: " << nwrite << std::endl;
+    //std::cerr << "client nwrite: " << nwrite << std::endl;
     m_write_client_buffer.erase(m_write_client_buffer.begin(), m_write_client_buffer.begin() + nwrite);
     if (!m_write_client_buffer.empty())
     {
@@ -628,7 +619,7 @@ void Client::handle_client_write(std::size_t nwrite)
         assert(false);
         break;
     case State::READING_AUTH_METHODS:
-        std::cerr << "After reply auth methods" << std::endl;
+        //std::cerr << "After reply auth methods" << std::endl;
         m_state = State::READING_CLIENT_CONNECTION_REQUEST;
         this->read_some_from_client(4);
         break;
@@ -642,7 +633,7 @@ void Client::handle_client_write(std::size_t nwrite)
         assert(false);
         break;
     case State::CONNECTING_TO_DESTINATION:
-        std::cerr << "After reply address accepted" << std::endl;
+        //std::cerr << "After reply address accepted" << std::endl;
         m_state = State::READING_USER_REQUESTS;
         m_server.add_dst_read_request(this);
         this->read_from_client();
@@ -688,13 +679,13 @@ void Client::handle_dst_connect()
 
 void Client::handle_dst_read(std::size_t nread)
 {
-    std::cerr << "DST READ " << nread << std::endl;
+    //std::cerr << "DST READ " << nread << std::endl;
     m_server.add_client_write_request(this, nread);
 }
 
 void Client::handle_dst_write(std::size_t nwrite)
 {
-    std::cerr << "DST WRITE " << nwrite << std::endl;
+    //std::cerr << "DST WRITE " << nwrite << std::endl;
     m_server.add_client_read_request(this);
 }
 

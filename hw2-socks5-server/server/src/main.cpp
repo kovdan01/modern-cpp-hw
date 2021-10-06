@@ -68,10 +68,10 @@ int main(int argc, char* argv[]) try
     }
 
     // TODO: handle signals properly
-    ::signal(SIGPIPE, SIG_IGN);
+    //::signal(SIGPIPE, SIG_IGN);
 
-    std::size_t nconnections = 1024;
-    hw2::MainSocket server_socket(params->port, nconnections);
+    std::size_t nconnections = 4096;
+    hw2::MainSocket server_socket(params->port, nconnections * params->threads_count);
 
     auto thread_function = [&server_socket, nconnections]()
     {

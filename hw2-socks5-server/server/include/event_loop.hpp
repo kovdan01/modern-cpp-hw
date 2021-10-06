@@ -16,7 +16,7 @@
 namespace hw2
 {
 
-using byte_t = char;
+using byte_t = unsigned char;
 
 enum class EventType
 {
@@ -42,7 +42,7 @@ class EventPool
 public:
     EventPool(std::size_t nconnections);
 
-    Event& obtain_event();
+    [[nodiscard]] Event& obtain_event();
     void return_event(const Event& event);
 
     const std::size_t total_events_count;
@@ -69,13 +69,13 @@ public:
 
     BufferPool(std::size_t nconnections);
 
-    std::size_t obtain_free_buffer();
+    [[nodiscard]] std::size_t obtain_free_buffer();
     void return_buffer(std::size_t buffer_index);
 
-    std::span<const byte_t> buffer_half0(std::size_t buffer_index) const;
-    std::span<byte_t> buffer_half0(std::size_t buffer_index);
-    std::span<const byte_t> buffer_half1(std::size_t buffer_index) const;
-    std::span<byte_t> buffer_half1(std::size_t buffer_index);
+    [[nodiscard]] std::span<const byte_t> buffer_half0(std::size_t buffer_index) const;
+    [[nodiscard]] std::span<byte_t> buffer_half0(std::size_t buffer_index);
+    [[nodiscard]] std::span<const byte_t> buffer_half1(std::size_t buffer_index) const;
+    [[nodiscard]] std::span<byte_t> buffer_half1(std::size_t buffer_index);
 
     const std::size_t total_buffer_count;
 
@@ -96,10 +96,10 @@ public:
     void read_from_client();
     void read_some_from_client(std::size_t n);
 
-    std::span<byte_t> buffer0() { return m_buffer0; }
-    std::span<const byte_t> buffer0() const { return m_buffer0; }
-    std::span<byte_t> buffer1() { return m_buffer1; }
-    std::span<const byte_t> buffer1() const { return m_buffer1; }
+    [[nodiscard]] std::span<byte_t> buffer0() { return m_buffer0; }
+    [[nodiscard]] std::span<const byte_t> buffer0() const { return m_buffer0; }
+    [[nodiscard]] std::span<byte_t> buffer1() { return m_buffer1; }
+    [[nodiscard]] std::span<const byte_t> buffer1() const { return m_buffer1; }
 
     void handle_client_read(std::size_t nread);
     void handle_client_write(std::size_t nwrite);
@@ -107,7 +107,7 @@ public:
     void handle_dst_read(std::size_t nread);
     void handle_dst_write(std::size_t nwrite);
 
-    Socket* destination_socket() { return m_destination_socket.get(); }
+    [[nodiscard]] Socket* destination_socket() { return m_destination_socket.get(); }
 
     const int fd;
     bool fail = false;
