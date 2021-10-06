@@ -46,7 +46,7 @@ public:
         ~InsufficientBuffersException() override;
     };
 
-    static constexpr std::size_t HALF_BUFFER_SIZE = 4096;
+    static constexpr std::size_t HALF_BUFFER_SIZE = (1 << 14);
     // 0: receive from client, send to destination
     // 1: receive from destination, send to client
     static constexpr std::size_t BUFFER_SIZE = HALF_BUFFER_SIZE * 2;
@@ -87,6 +87,7 @@ public:
 
     void handle_client_read(std::size_t nread);
     void handle_client_write(std::size_t nwrite);
+    void handle_dst_connect();
     void handle_dst_read(std::size_t nread);
     void handle_dst_write(std::size_t nwrite);
 
@@ -117,6 +118,7 @@ private:
         READING_CLIENT_CONNECTION_REQUEST,
         READING_DOMAIN_NAME_LENGTH,
         READING_ADDRESS,
+        CONNECTING_TO_DESTINATION,
         READING_USER_REQUESTS,
     };
 
@@ -182,7 +184,7 @@ public:
     void add_client_accept_request(struct sockaddr_in* client_addr, socklen_t* client_addr_len);
     void add_client_read_request(Client* client);
     void add_client_write_request(Client* client, std::size_t nbytes);
-//    void add_dst_connect_request(Client* client);
+    void add_dst_connect_request(Client* client);
     void add_dst_read_request(Client* client);
     void add_dst_write_request(Client* client, std::size_t nbytes);
 

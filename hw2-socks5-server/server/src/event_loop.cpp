@@ -130,8 +130,6 @@ void IoUring::event_loop()
 {
     this->add_client_accept_request(&m_client_addr, &m_client_addr_len);
 
-    // TODO: handle client shutdown
-
     for (;;)
     {
         io_uring_cqe* cqe;
@@ -169,9 +167,11 @@ void IoUring::event_loop()
                 {
                     switch (event->type)
                     {
+#ifndef NDEBUG
                     case EventType::CLIENT_ACCEPT:
                         assert(false);
                         break;
+#endif
                     case EventType::CLIENT_READ:
                         if (LIKELY(cqe->res))  // non-empty request?
                         {
@@ -186,7 +186,7 @@ void IoUring::event_loop()
                         event->client->handle_client_write(cqe->res);
                         break;
                     case EventType::DESTINATION_CONNECT:
-                        assert(false);
+                        event->client->handle_dst_connect();
                         break;
                     case EventType::DESTINATION_READ:
                         event->client->handle_dst_read(cqe->res);
@@ -216,7 +216,8 @@ void IoUring::add_client_read_request(Client* client)
     ++client->awaiting_events_count;
     struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_recv(sqe, client->fd, client->buffer0().data(),
-                       BufferPool::BUFFER_SIZE, 0);
+                       BufferPool::HALF_BUFFER_SIZE, 0);
+    // TODO: create object pool for events
     Event* event = new Event{client, EventType::CLIENT_READ};
     io_uring_sqe_set_data(sqe, event);
     io_uring_submit(&m_ring);
@@ -232,23 +233,23 @@ void IoUring::add_client_write_request(Client* client, std::size_t nbytes)
     io_uring_submit(&m_ring);
 }
 
-//void IoUring::add_dst_connect_request(Client* client)
-//{
-//    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-//    io_uring_prep_connect(sqe, client->destination_socket()->fd,
-//                          reinterpret_cast<sockaddr*>(&client->destination_socket()->address()),
-//                          sizeof(client->destination_socket()->address()));
-//    Event* event = new Event{client, EventType::DST_CONNECT};
-//    io_uring_sqe_set_data(sqe, event);
-//    io_uring_submit(&m_ring);
-//}
+void IoUring::add_dst_connect_request(Client* client)
+{
+    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    io_uring_prep_connect(sqe, client->destination_socket()->fd,
+                          client->destination_socket()->address(),
+                          client->destination_socket()->address_length());
+    Event* event = new Event{client, EventType::DESTINATION_CONNECT};
+    io_uring_sqe_set_data(sqe, event);
+    io_uring_submit(&m_ring);
+}
 
 void IoUring::add_dst_read_request(Client* client)
 {
     ++client->awaiting_events_count;
     struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_recv(sqe, client->destination_socket()->fd, client->buffer1().data(),
-                       BufferPool::BUFFER_SIZE, 0);
+                       BufferPool::HALF_BUFFER_SIZE, 0);
     Event* event = new Event{client, EventType::DESTINATION_READ};
     io_uring_sqe_set_data(sqe, event);
     io_uring_submit(&m_ring);
@@ -292,7 +293,7 @@ void Client::read_some_from_client(std::size_t n)
 
 void Client::write_to_client()
 {
-    std::size_t cnt = std::min(BufferPool::BUFFER_SIZE, m_write_client_buffer.size());
+    std::size_t cnt = std::min(BufferPool::HALF_BUFFER_SIZE, m_write_client_buffer.size());
     std::memcpy(m_buffer1.data(), m_write_client_buffer.data(), cnt);
     m_server.add_client_write_request(this, cnt);
 }
@@ -414,42 +415,32 @@ void Client::connect_ipv4_destination()
 {
     try
     {
-        m_destination_socket = std::make_unique<ExternalConnectionIPv4>(m_ipv4_address, m_port);
+        m_destination_socket = std::make_unique<SocketIPv4>(m_ipv4_address, m_port);
     }
     catch (...)
     {
         this->send_fail_message();
         return;
     }
-    m_write_client_buffer.resize(10);
-    m_write_client_buffer[0] = 0x05;  // protocol version
-    m_write_client_buffer[1] = 0x00;  // request granted
-    m_write_client_buffer[2] = 0x00;  // reserved
-    m_write_client_buffer[3] = 0x01;  // IPv4
-    std::memcpy(m_write_client_buffer.data() + 4, &m_ipv4_address, 4);
-    std::memcpy(m_write_client_buffer.data() + 8, &m_port, 2);
-    this->write_to_client();
+    m_state = State::CONNECTING_TO_DESTINATION;
+    m_server.add_dst_connect_request(this);
 }
 
 void Client::connect_ipv6_destination()
 {
     try
     {
-        m_destination_socket = std::make_unique<ExternalConnectionIPv6>(m_ipv6_address, m_port);
+        m_destination_socket = std::make_unique<SocketIPv6>(m_ipv6_address, m_port);
     }
     catch (...)
     {
         this->send_fail_message();
         return;
     }
-    m_write_client_buffer.resize(22);
-    m_write_client_buffer[0] = 0x05;  // protocol version
-    m_write_client_buffer[1] = 0x00;  // request granted
-    m_write_client_buffer[2] = 0x00;  // reserved
-    m_write_client_buffer[3] = 0x04;  // IPv6
-    std::memcpy(m_write_client_buffer.data() + 4, &m_ipv6_address, 16);
-    std::memcpy(m_write_client_buffer.data() + 20, &m_port, 2);
-    this->write_to_client();
+    m_state = State::CONNECTING_TO_DESTINATION;
+    m_server.add_dst_connect_request(this);
+
+
 }
 
 void Client::read_address()
@@ -490,6 +481,7 @@ void Client::read_address()
             {
             case AF_INET:
             {
+                m_address_type = ADDRESS_TYPE_IPV4;
                 in_addr* addr = reinterpret_cast<in_addr*>(he->h_addr_list[0]);
                 std::memcpy(&m_ipv4_address, &addr, sizeof(in_addr));
                 this->connect_ipv4_destination();
@@ -497,12 +489,13 @@ void Client::read_address()
             }
             case AF_INET6:
             {
+                m_address_type = ADDRESS_TYPE_IPV6;
                 in6_addr* addr = reinterpret_cast<in6_addr*>(he->h_addr_list[0]);
                 std::memcpy(&m_ipv6_address, &addr, sizeof(in6_addr));
                 this->connect_ipv6_destination();
                 break;
             }
-#ifndef DNDEBUG
+#ifndef NDEBUG
             default:
                 assert(false);
                 break;
@@ -520,13 +513,15 @@ void Client::read_address()
         this->connect_ipv6_destination();
         break;
 
-#ifndef DNDEBUG
+#ifndef NDEBUG
     default:
         assert(false);
         break;
 #endif
     }
 }
+
+// TODO: different fail messages
 
 void Client::handle_client_read(std::size_t nread)
 {
@@ -563,7 +558,10 @@ void Client::handle_client_read(std::size_t nread)
     case State::READING_ADDRESS:
         this->read_address();
         break;
-#ifndef DNDEBUG
+#ifndef NDEBUG
+    case State::CONNECTING_TO_DESTINATION:
+        assert(false);
+        break;
     case State::READING_USER_REQUESTS:
         assert(false);
         break;
@@ -589,29 +587,65 @@ void Client::handle_client_write(std::size_t nwrite)
 
     switch (m_state)
     {
+    case State::READING_CLIENT_GREETING:
+        assert(false);
+        break;
     case State::READING_AUTH_METHODS:
         std::cerr << "After reply auth methods" << std::endl;
         m_state = State::READING_CLIENT_CONNECTION_REQUEST;
         this->read_some_from_client(4);
         break;
+    case State::READING_CLIENT_CONNECTION_REQUEST:
+        assert(false);
+        break;
     case State::READING_DOMAIN_NAME_LENGTH:
         assert(false);
         break;
     case State::READING_ADDRESS:
+        assert(false);
+        break;
+    case State::CONNECTING_TO_DESTINATION:
         std::cerr << "After reply address accepted" << std::endl;
         m_state = State::READING_USER_REQUESTS;
         m_server.add_dst_read_request(this);
         this->read_from_client();
         break;
-    case State::READING_CLIENT_GREETING:
-        assert(false);
-        break;
-    case State::READING_CLIENT_CONNECTION_REQUEST:
-        assert(false);
-        break;
     case State::READING_USER_REQUESTS:
         assert(false);
         break;
+    }
+}
+
+void Client::handle_dst_connect()
+{
+    assert(m_state == State::CONNECTING_TO_DESTINATION);
+    switch (m_address_type)
+    {
+    case ADDRESS_TYPE_IPV4:
+        m_write_client_buffer.resize(10);
+        m_write_client_buffer[0] = 0x05;  // protocol version
+        m_write_client_buffer[1] = 0x00;  // request granted
+        m_write_client_buffer[2] = 0x00;  // reserved
+        m_write_client_buffer[3] = 0x01;  // IPv4
+        std::memcpy(m_write_client_buffer.data() + 4, &m_ipv4_address, 4);
+        std::memcpy(m_write_client_buffer.data() + 8, &m_port, 2);
+        this->write_to_client();
+        break;
+    case ADDRESS_TYPE_IPV6:
+        m_write_client_buffer.resize(22);
+        m_write_client_buffer[0] = 0x05;  // protocol version
+        m_write_client_buffer[1] = 0x00;  // request granted
+        m_write_client_buffer[2] = 0x00;  // reserved
+        m_write_client_buffer[3] = 0x04;  // IPv6
+        std::memcpy(m_write_client_buffer.data() + 4, &m_ipv6_address, 16);
+        std::memcpy(m_write_client_buffer.data() + 20, &m_port, 2);
+        this->write_to_client();
+        break;
+#ifndef NDEBUG
+    default:
+        assert(false);
+        break;
+#endif
     }
 }
 
