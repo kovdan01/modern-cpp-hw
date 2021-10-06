@@ -14,6 +14,7 @@
 #include <memory>
 #include <queue>
 #include <span>
+#include <thread>
 #include <vector>
 
 namespace hw2
@@ -104,7 +105,7 @@ Client::Client(int fd, IoUring& server, BufferPool& buffer_pool)
 }
 
 
-IoUring::IoUring(const MainSocket& socket, int nconnections)
+IoUring::IoUring(const MainSocket& socket, std::size_t nconnections)
     : m_socket(socket)
     , m_event_pool(nconnections)
     , m_buffer_pool(nconnections)
@@ -157,6 +158,7 @@ void IoUring::event_loop()
 
     for (;;)
     {
+        std::cerr << "THREAD ID: " <<  std::this_thread::get_id() << std::endl;
         io_uring_cqe* cqe;
         if (UNLIKELY(io_uring_wait_cqe(&m_ring, &cqe) < 0))
             throw std::runtime_error("io_uring_wait_cqe");

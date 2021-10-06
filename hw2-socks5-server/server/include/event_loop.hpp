@@ -191,7 +191,7 @@ private:
 class IoUring
 {
 public:
-    IoUring(const MainSocket& socket, int nconnections);
+    IoUring(const MainSocket& socket, std::size_t nconnections);
 
     ~IoUring();
 

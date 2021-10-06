@@ -57,20 +57,34 @@ static std::optional<Params> parse_cmd_line(int argc, char* argv[])
     }
 }
 
+// TODO: static analysis
+
 int main(int argc, char* argv[]) try
 {
     std::optional<Params> params = parse_cmd_line(argc, argv);
     if (params == std::nullopt)
-        return 1;
+    {
+        return EXIT_FAILURE;
+    }
 
-    int nconnections = 1024;
-    hw2::BufferPool buffers(nconnections);
-
-    hw2::MainSocket server_socket(params->port, nconnections);
-    hw2::IoUring uring(server_socket, nconnections);
     // TODO: handle signals properly
     ::signal(SIGPIPE, SIG_IGN);
-    uring.event_loop();
+
+    std::size_t nconnections = 1024;
+    hw2::MainSocket server_socket(params->port, nconnections);
+
+    auto thread_function = [&server_socket, nconnections]()
+    {
+        hw2::IoUring uring(server_socket, nconnections);
+        uring.event_loop();
+    };
+
+    std::vector<std::thread> threads(params->threads_count);
+    for (std::thread& thread : threads)
+    {
+        thread = std::thread(thread_function);
+    }
+    thread_function();
 
     return EXIT_SUCCESS;
 }

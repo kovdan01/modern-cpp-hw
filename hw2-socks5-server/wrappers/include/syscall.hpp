@@ -20,81 +20,13 @@ public:
     ~Error() override;
 };
 
-inline int socket(int address_family)
-{
-    int sfd = ::socket(address_family, SOCK_STREAM, 0);
-    if (sfd == -1)
-    {
-        std::perror("socket");
-        throw Error("socket");
-    }
-    return sfd;
-}
-
-inline int socket4()
-{
-    return socket(AF_INET);
-}
-
-inline int socket6()
-{
-    return socket(AF_INET6);
-}
-
-inline void close(int fd)
-{
-    if (::close(fd) == -1)
-    {
-        std::perror("close");
-        throw Error("close");
-    }
-}
-
-inline void bind(int fd, const sockaddr_in& address)
-{
-    if (::bind(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
-    {
-        std::perror("bind");
-        throw Error("bind");
-    }
-}
-
-inline void listen(int fd, int maxqueue = 1)
-{
-    if (::listen(fd, maxqueue) < 0)
-    {
-        std::perror("listen");
-        throw Error("listen");
-    }
-}
-
-inline void connect4(int fd, const sockaddr_in& address)
-{
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
-    {
-        std::perror("connect4");
-        throw Error("connect4");
-    }
-}
-
-inline void connect6(int fd, const sockaddr_in6& address)
-{
-    if (::connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
-    {
-        std::perror("connect6");
-        throw Error("connect6");
-    }
-}
-
-inline void setsockopt(int fd)
-{
-    static constexpr int sockoptval = 1;
-    if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &sockoptval, sizeof (sockoptval)) == -1)
-    {
-        std::perror("setsockopt");
-        throw Error("setsockopt");
-    }
-}
+HW2_WRAPPERS_EXPORT int socket(int address_family);
+HW2_WRAPPERS_EXPORT int socket_ipv4();
+HW2_WRAPPERS_EXPORT int socket_ipv6();
+HW2_WRAPPERS_EXPORT void close(int fd);
+HW2_WRAPPERS_EXPORT void bind(int fd, const sockaddr_in& address);
+HW2_WRAPPERS_EXPORT void listen(int fd, int maxqueue);
+HW2_WRAPPERS_EXPORT void setsockopt_reuseaddr(int fd);
 
 }  // namespace hw2::syscall_wrapper
 
