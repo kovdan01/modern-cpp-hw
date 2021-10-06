@@ -19,13 +19,37 @@
 namespace hw2
 {
 
+EventPool::EventPool(std::size_t nconnections)
+    : total_events_count(4 * nconnections)  // read & write for client & destination
+    , m_events(total_events_count)
+{
+    for (std::size_t i = 0; i < total_events_count; ++i)
+    {
+        m_events[i].id = i;
+        m_free_events.push(i);
+    }
+}
+
+Event& EventPool::obtain_event()
+{
+    assert(!m_free_events.empty());
+    std::size_t free_event_index = m_free_events.front();
+    m_free_events.pop();
+    return m_events[free_event_index];
+}
+
+void EventPool::return_event(const Event &event)
+{
+    m_free_events.push(event.id);
+}
+
 BufferPool::InsufficientBuffersException::~InsufficientBuffersException() = default;
 
 BufferPool::BufferPool(std::size_t nconnections)
     : total_buffer_count(nconnections)
-    , m_buffers(nconnections * BUFFER_SIZE)
+    , m_buffers(total_buffer_count * BUFFER_SIZE)
 {
-    for (std::size_t i = 0; i < nconnections; ++i)
+    for (std::size_t i = 0; i < total_buffer_count; ++i)
     {
         m_free_buffers.push(i);
     }
@@ -82,6 +106,7 @@ Client::Client(int fd, IoUring& server, BufferPool& buffer_pool)
 
 IoUring::IoUring(const MainSocket& socket, int nconnections)
     : m_socket(socket)
+    , m_event_pool(nconnections)
     , m_buffer_pool(nconnections)
 {
     int poll = false;  // kernel polling, root required
@@ -143,7 +168,7 @@ void IoUring::event_loop()
             {
                 Event* event = reinterpret_cast<Event*>(cqe->user_data);
                 event->client->fail = true;
-                delete event;
+                m_event_pool.return_event(*event);
             }
         }
         else
@@ -196,7 +221,7 @@ void IoUring::event_loop()
                         break;
                     }
                 }
-                delete event;
+                m_event_pool.return_event(*event);
             }
         }
         io_uring_cqe_seen(&m_ring, cqe);
@@ -217,9 +242,11 @@ void IoUring::add_client_read_request(Client* client)
     struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_recv(sqe, client->fd, client->buffer0().data(),
                        BufferPool::HALF_BUFFER_SIZE, 0);
-    // TODO: create object pool for events
-    Event* event = new Event{client, EventType::CLIENT_READ};
-    io_uring_sqe_set_data(sqe, event);
+
+    Event& event = m_event_pool.obtain_event();
+    event.client = client;
+    event.type = EventType::CLIENT_READ;
+    io_uring_sqe_set_data(sqe, &event);
     io_uring_submit(&m_ring);
 }
 
@@ -228,8 +255,10 @@ void IoUring::add_client_write_request(Client* client, std::size_t nbytes)
     ++client->awaiting_events_count;
     struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_send(sqe, client->fd, client->buffer1().data(), nbytes, MSG_WAITALL);
-    Event* event = new Event{client, EventType::CLIENT_WRITE};
-    io_uring_sqe_set_data(sqe, event);
+    Event& event = m_event_pool.obtain_event();
+    event.client = client;
+    event.type = EventType::CLIENT_WRITE;
+    io_uring_sqe_set_data(sqe, &event);
     io_uring_submit(&m_ring);
 }
 
@@ -239,8 +268,10 @@ void IoUring::add_dst_connect_request(Client* client)
     io_uring_prep_connect(sqe, client->destination_socket()->fd,
                           client->destination_socket()->address(),
                           client->destination_socket()->address_length());
-    Event* event = new Event{client, EventType::DESTINATION_CONNECT};
-    io_uring_sqe_set_data(sqe, event);
+    Event& event = m_event_pool.obtain_event();
+    event.client = client;
+    event.type = EventType::DESTINATION_CONNECT;
+    io_uring_sqe_set_data(sqe, &event);
     io_uring_submit(&m_ring);
 }
 
@@ -250,8 +281,10 @@ void IoUring::add_dst_read_request(Client* client)
     struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_recv(sqe, client->destination_socket()->fd, client->buffer1().data(),
                        BufferPool::HALF_BUFFER_SIZE, 0);
-    Event* event = new Event{client, EventType::DESTINATION_READ};
-    io_uring_sqe_set_data(sqe, event);
+    Event& event = m_event_pool.obtain_event();
+    event.client = client;
+    event.type = EventType::DESTINATION_READ;
+    io_uring_sqe_set_data(sqe, &event);
     io_uring_submit(&m_ring);
 }
 
@@ -260,8 +293,10 @@ void IoUring::add_dst_write_request(Client* client, std::size_t nbytes)
     ++client->awaiting_events_count;
     struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_send(sqe, client->destination_socket()->fd, client->buffer0().data(), nbytes, MSG_WAITALL);
-    Event* event = new Event{client, EventType::DESTINATION_WRITE};
-    io_uring_sqe_set_data(sqe, event);
+    Event& event = m_event_pool.obtain_event();
+    event.client = client;
+    event.type = EventType::DESTINATION_WRITE;
+    io_uring_sqe_set_data(sqe, &event);
     io_uring_submit(&m_ring);
 }
 

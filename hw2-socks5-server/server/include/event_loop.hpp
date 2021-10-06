@@ -32,8 +32,24 @@ class Client;
 
 struct Event
 {
+    std::size_t id;
     Client* client;
     EventType type;
+};
+
+class EventPool
+{
+public:
+    EventPool(std::size_t nconnections);
+
+    Event& obtain_event();
+    void return_event(const Event& event);
+
+    const std::size_t total_events_count;
+
+private:
+    std::vector<Event> m_events;
+    std::queue<std::size_t> m_free_events;
 };
 
 class BufferPool
@@ -192,6 +208,7 @@ private:
     void handle_accept(const io_uring_cqe* cqe);
 
     const MainSocket& m_socket;
+    EventPool m_event_pool;
     BufferPool m_buffer_pool;
     io_uring m_ring;
     sockaddr_in m_client_addr;
