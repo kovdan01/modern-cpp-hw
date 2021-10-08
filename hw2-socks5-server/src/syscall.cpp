@@ -1,7 +1,17 @@
 #include <syscall.hpp>
 
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 namespace hw2::syscall_wrapper
 {
+
+Error::Error(const std::string& error_message, int error_code)
+    : std::runtime_error(error_message)
+    , error_code(error_code)
+{
+}
 
 Error::~Error() = default;
 
@@ -11,7 +21,7 @@ int socket(int address_family)
     if (sfd == -1)
     {
         std::perror("socket");
-        throw Error("socket");
+        throw Error("socket", errno);
     }
     return sfd;
 }
@@ -31,7 +41,7 @@ void close(int fd)
     if (::close(fd) == -1)
     {
         std::perror("close");
-        throw Error("close");
+        throw Error("close", errno);
     }
 }
 
@@ -40,7 +50,7 @@ void bind(int fd, const sockaddr_in& address)
     if (::bind(fd, reinterpret_cast<const sockaddr*>(&address), sizeof (address)) == -1)
     {
         std::perror("bind");
-        throw Error("bind");
+        throw Error("bind", errno);
     }
 }
 
@@ -49,7 +59,7 @@ void listen(int fd, int maxqueue)
     if (::listen(fd, maxqueue) < 0)
     {
         std::perror("listen");
-        throw Error("listen");
+        throw Error("listen", errno);
     }
 }
 
@@ -59,7 +69,7 @@ void setsockopt_reuseaddr(int fd)
     if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &sockoptval, sizeof (sockoptval)) == -1)
     {
         std::perror("setsockopt");
-        throw Error("setsockopt");
+        throw Error("setsockopt", errno);
     }
 }
 

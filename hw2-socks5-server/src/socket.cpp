@@ -1,9 +1,10 @@
 #include <socket.hpp>
+#include <utils.hpp>
 
 namespace hw2
 {
 
-sockaddr_in construct_address_ipv4(in_addr addr, in_port_t port)
+static sockaddr_in construct_address_ipv4(in_addr addr, in_port_t port)
 {
     sockaddr_in address;
     std::memset(&address, 0, sizeof (address));
@@ -13,7 +14,7 @@ sockaddr_in construct_address_ipv4(in_addr addr, in_port_t port)
     return address;
 }
 
-sockaddr_in6 construct_address_ipv6(in6_addr addr, in_port_t port)
+static sockaddr_in6 construct_address_ipv6(in6_addr addr, in_port_t port)
 {
     sockaddr_in6 address;
     std::memset(&address, 0, sizeof (address));
@@ -36,6 +37,7 @@ Socket::~Socket()
     }
     catch (...)
     {
+        logger()->critical("Unhandled exception in Socket::~Socket");
         std::exit(EXIT_FAILURE);
     }
 }
@@ -86,7 +88,7 @@ socklen_t SocketIPv6::address_length() const
     return sizeof(m_address);
 }
 
-MainSocket::MainSocket(in_port_t port, std::size_t maxqueue)
+MainSocket::MainSocket(in_port_t port, int maxqueue)
     : SocketIPv4({INADDR_ANY}, ::htons(port))
 {
     syscall_wrapper::setsockopt_reuseaddr(fd);

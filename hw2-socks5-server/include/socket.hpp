@@ -1,7 +1,6 @@
-#ifndef HW2_SOCKS5_SERVER_WRAPPERS_SOCKET_HPP_
-#define HW2_SOCKS5_SERVER_WRAPPERS_SOCKET_HPP_
+#ifndef HW2_SOCKS5_SERVER_SOCKET_HPP_
+#define HW2_SOCKS5_SERVER_SOCKET_HPP_
 
-#include <hw2-wrappers/export.h>
 #include <syscall.hpp>
 
 #include <arpa/inet.h>
@@ -15,7 +14,7 @@
 namespace hw2
 {
 
-class HW2_WRAPPERS_EXPORT Socket
+class Socket
 {
 public:
     Socket() = delete;
@@ -32,7 +31,7 @@ public:
     const int fd;
 };
 
-class HW2_WRAPPERS_EXPORT SocketIPv4 : public Socket
+class SocketIPv4 : public Socket
 {
 public:
     SocketIPv4(in_addr addr, in_port_t port);
@@ -46,7 +45,7 @@ protected:
     sockaddr_in m_address;
 };
 
-class HW2_WRAPPERS_EXPORT SocketIPv6 : public Socket
+class SocketIPv6 : public Socket
 {
 public:
     SocketIPv6(in6_addr addr, in_port_t port);
@@ -60,13 +59,13 @@ protected:
     sockaddr_in6 m_address;
 };
 
-class HW2_WRAPPERS_EXPORT MainSocket : public SocketIPv4
+class MainSocket : public SocketIPv4
 {
 public:
-    MainSocket(in_port_t port, std::size_t maxqueue);
+    MainSocket(in_port_t port, int maxqueue);
     ~MainSocket() override;
 };
 
 }  // namespace hw2
 
-#endif  // HW2_SOCKS5_SERVER_WRAPPERS_SOCKET_HPP_
+#endif  // HW2_SOCKS5_SERVER_SOCKET_HPP_

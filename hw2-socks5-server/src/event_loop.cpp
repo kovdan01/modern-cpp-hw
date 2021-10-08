@@ -3,14 +3,15 @@
 #include <syscall.hpp>
 #include <utils.hpp>
 
+#include <spdlog/fmt/bin_to_hex.h>
+
+#include <arpa/inet.h>
 #include <liburing.h>
 #include <netdb.h>
 
 #include <algorithm>
 #include <cassert>
-#include <ctime>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <queue>
 #include <span>
@@ -46,48 +47,63 @@ void EventPool::return_event(const Event &event)
 
 BufferPool::InsufficientBuffersException::~InsufficientBuffersException() = default;
 
-BufferPool::BufferPool(std::size_t nconnections)
+BufferPool::BufferPool(unsigned nconnections)
     : total_buffer_count(nconnections)
     , m_buffers(total_buffer_count * BUFFER_SIZE)
+    , m_iovecs(2 * total_buffer_count)
 {
-    for (std::size_t i = 0; i < total_buffer_count; ++i)
+    for (unsigned i = 0; i < total_buffer_count; ++i)
     {
         m_free_buffers.push(i);
+        m_iovecs[2 * i].iov_base = m_buffers.data() + 2 * i * HALF_BUFFER_SIZE;
+        m_iovecs[2 * i].iov_len = HALF_BUFFER_SIZE;
+        m_iovecs[2 * i + 1].iov_base = m_buffers.data() + (2 * i + 1) * HALF_BUFFER_SIZE;
+        m_iovecs[2 * i + 1].iov_len = HALF_BUFFER_SIZE;
     }
 }
 
-std::size_t BufferPool::obtain_free_buffer()
+std::span<const iovec> BufferPool::get_iovecs() const
+{
+    return { m_iovecs.data(), m_iovecs.size() };
+}
+
+std::span<iovec> BufferPool::get_iovecs()
+{
+    return { m_iovecs.data(), m_iovecs.size() };
+}
+
+unsigned BufferPool::obtain_free_buffer()
 {
     if (UNLIKELY(m_free_buffers.empty()))
     {
         throw InsufficientBuffersException("");
     }
-    std::size_t free_buffer_index = m_free_buffers.front();
+    unsigned free_buffer_index = m_free_buffers.front();
     m_free_buffers.pop();
     return free_buffer_index;
 }
 
-void BufferPool::return_buffer(std::size_t buffer_index)
+void BufferPool::return_buffer(unsigned buffer_index)
 {
     m_free_buffers.push(buffer_index);
 }
 
-std::span<const byte_t> BufferPool::buffer_half0(std::size_t buffer_index) const
+std::span<const byte_t> BufferPool::buffer_half0(unsigned buffer_index) const
 {
     return { m_buffers.data() + buffer_index * BUFFER_SIZE, m_buffers.data() + buffer_index * BUFFER_SIZE + HALF_BUFFER_SIZE };
 }
 
-std::span<byte_t> BufferPool::buffer_half0(std::size_t buffer_index)
+std::span<byte_t> BufferPool::buffer_half0(unsigned buffer_index)
 {
     return { m_buffers.data() + buffer_index * BUFFER_SIZE, m_buffers.data() + buffer_index * BUFFER_SIZE + HALF_BUFFER_SIZE };
 }
 
-std::span<const byte_t> BufferPool::buffer_half1(std::size_t buffer_index) const
+std::span<const byte_t> BufferPool::buffer_half1(unsigned buffer_index) const
 {
     return { m_buffers.data() + buffer_index * BUFFER_SIZE + HALF_BUFFER_SIZE, m_buffers.data() + (buffer_index + 1) * BUFFER_SIZE };
 }
 
-std::span<byte_t> BufferPool::buffer_half1(std::size_t buffer_index)
+std::span<byte_t> BufferPool::buffer_half1(unsigned buffer_index)
 {
     return { m_buffers.data() + buffer_index * BUFFER_SIZE + HALF_BUFFER_SIZE, m_buffers.data() + (buffer_index + 1) * BUFFER_SIZE };
 }
@@ -97,24 +113,28 @@ Client::Client(int fd, IoUring& server, BufferPool& buffer_pool)
     : fd(fd)
     , m_server(server)
     , m_buffer_pool(buffer_pool)
-    , buffer_index(m_buffer_pool.obtain_free_buffer())
-    , m_buffer0(m_buffer_pool.buffer_half0(buffer_index))
-    , m_buffer1(m_buffer_pool.buffer_half1(buffer_index))
+    , m_buffer_index(m_buffer_pool.obtain_free_buffer())
+    , buffer0_index(static_cast<unsigned>(2 * m_buffer_index + 0))
+    , buffer1_index(static_cast<unsigned>(2 * m_buffer_index + 1))
+    , m_buffer0(m_buffer_pool.buffer_half0(m_buffer_index))
+    , m_buffer1(m_buffer_pool.buffer_half1(m_buffer_index))
 {
     m_is_read_completed = [](){ return true; };
 }
 
 
-IoUring::IoUring(const MainSocket& socket, std::size_t nconnections)
+IoUring::IoUring(const MainSocket& socket, unsigned nconnections)
     : m_socket(socket)
     , m_event_pool(nconnections)
     , m_buffer_pool(nconnections)
+    , m_is_root(::geteuid() == 0 ? true : false)
 {
+    // TODO: support kernel polling
     int poll = false;  // kernel polling, root required
 
     if (poll)
     {
-        if (::geteuid() != 0)
+        if (!m_is_root)
         {
             throw std::runtime_error("You need root privileges to do kernel polling.");
         }
@@ -123,9 +143,20 @@ IoUring::IoUring(const MainSocket& socket, std::size_t nconnections)
     struct io_uring_params params;
     std::memset(&params, 0, sizeof(io_uring_params));
     params.flags = poll ? IORING_SETUP_SQPOLL | IORING_SETUP_SQ_AFF : 0;
-    params.sq_thread_idle = 2'147'483'647;
+    params.sq_thread_idle = std::numeric_limits<std::uint32_t>::max();
     if (io_uring_queue_init_params(nconnections, &m_ring, &params) != 0)
         throw std::runtime_error("io_uring_queue_init_params");
+
+    if (m_is_root)
+    {
+        std::span<const iovec> iovecs = m_buffer_pool.get_iovecs();
+        int res = io_uring_register_buffers(&m_ring, iovecs.data(), static_cast<unsigned>(iovecs.size()));
+        if (res != 0)
+        {
+            std::perror("io_uring_register_buffers");
+            throw std::runtime_error("io_uring_register_buffers");
+        }
+    }
 }
 
 IoUring::~IoUring()
@@ -144,7 +175,7 @@ void IoUring::handle_accept(const io_uring_cqe* cqe)
     }
     catch (const BufferPool::InsufficientBuffersException&)
     {
-        std::cerr << "Server capacity exceeded" << std::endl;
+        logger()->error("Server capacity exceeded");
         syscall_wrapper::close(fd);
         return;
     }
@@ -158,14 +189,17 @@ void IoUring::event_loop()
 
     for (;;)
     {
-        //std::cerr << "THREAD ID: " <<  std::this_thread::get_id() << std::endl;
         io_uring_cqe* cqe;
         if (UNLIKELY(io_uring_wait_cqe(&m_ring, &cqe) < 0))
-            throw std::runtime_error("io_uring_wait_cqe");
+        {
+            int error_code = errno;
+            logger()->error("io_uring_wait_cqe failed: {0}", std::strerror(error_code));
+            throw syscall_wrapper::Error("io_uring_wait_cqe", error_code);
+        }
 
         if (UNLIKELY(cqe->res < 0))
         {
-            //std::cerr << "cqe fail: " << std::strerror(-cqe->res) << std::endl;
+            logger()->debug("cqe fail: {0}", std::strerror(-cqe->res));
             if (cqe->user_data != 0)
             {
                 Event* event = reinterpret_cast<Event*>(cqe->user_data);
@@ -200,26 +234,33 @@ void IoUring::event_loop()
                         break;
 #endif
                     case EventType::CLIENT_READ:
-                        if (LIKELY(cqe->res))  // non-empty request?
+                        if (LIKELY(cqe->res != 0))
                         {
-                            event->client->handle_client_read(cqe->res);
+                            event->client->handle_client_read(static_cast<unsigned>(cqe->res));
                         }
-                        else  // assume that empty read indicates that client disconnected
+                        else  // empty read indicates that client disconnected
                         {
                             event->client->fail = true;
                         }
                         break;
                     case EventType::CLIENT_WRITE:
-                        event->client->handle_client_write(cqe->res);
+                        event->client->handle_client_write(static_cast<unsigned>(cqe->res));
                         break;
                     case EventType::DESTINATION_CONNECT:
                         event->client->handle_dst_connect();
                         break;
                     case EventType::DESTINATION_READ:
-                        event->client->handle_dst_read(cqe->res);
+                        if (LIKELY(cqe->res != 0))
+                        {
+                            event->client->handle_dst_read(static_cast<unsigned>(cqe->res));
+                        }
+                        else  // empty read indicates that destination disconnected
+                        {
+                            event->client->fail = true;
+                        }
                         break;
                     case EventType::DESTINATION_WRITE:
-                        event->client->handle_dst_write(cqe->res);
+                        event->client->handle_dst_write(static_cast<unsigned>(cqe->res));
                         break;
                     }
                 }
@@ -232,7 +273,7 @@ void IoUring::event_loop()
 
 void IoUring::add_client_accept_request(struct sockaddr_in* client_addr, socklen_t* client_addr_len)
 {
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_accept(sqe, m_socket.fd, reinterpret_cast<struct sockaddr*>(client_addr), client_addr_len, 0);
     io_uring_sqe_set_data(sqe, nullptr);
     io_uring_submit(&m_ring);
@@ -241,10 +282,17 @@ void IoUring::add_client_accept_request(struct sockaddr_in* client_addr, socklen
 void IoUring::add_client_read_request(Client* client)
 {
     ++client->awaiting_events_count;
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-    io_uring_prep_recv(sqe, client->fd, client->buffer0().data(),
-                       BufferPool::HALF_BUFFER_SIZE, 0);
-
+    io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    if (m_is_root)
+    {
+        io_uring_prep_read_fixed(sqe, client->fd, client->buffer0().data(), BufferPool::HALF_BUFFER_SIZE,
+                                 0, static_cast<int>(client->buffer0_index));
+    }
+    else
+    {
+        io_uring_prep_read(sqe, client->fd, client->buffer0().data(),
+                           BufferPool::BUFFER_SIZE, 0);
+    }
     Event& event = m_event_pool.obtain_event();
     event.client = client;
     event.type = EventType::CLIENT_READ;
@@ -252,11 +300,19 @@ void IoUring::add_client_read_request(Client* client)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_client_write_request(Client* client, std::size_t nbytes)
+void IoUring::add_client_write_request(Client* client, unsigned nbytes, unsigned offset)
 {
     ++client->awaiting_events_count;
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-    io_uring_prep_send(sqe, client->fd, client->buffer1().data(), nbytes, MSG_WAITALL);
+    io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    if (m_is_root)
+    {
+        io_uring_prep_write_fixed(sqe, client->fd, client->buffer1().data(),
+                                  nbytes, offset, static_cast<int>(client->buffer1_index));
+    }
+    else
+    {
+        io_uring_prep_write(sqe, client->fd, client->buffer1().data(), nbytes, offset);
+    }
     Event& event = m_event_pool.obtain_event();
     event.client = client;
     event.type = EventType::CLIENT_WRITE;
@@ -264,9 +320,9 @@ void IoUring::add_client_write_request(Client* client, std::size_t nbytes)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_dst_connect_request(Client* client)
+void IoUring::add_destination_connect_request(Client* client)
 {
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     io_uring_prep_connect(sqe, client->destination_socket()->fd,
                           client->destination_socket()->address(),
                           client->destination_socket()->address_length());
@@ -277,12 +333,20 @@ void IoUring::add_dst_connect_request(Client* client)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_dst_read_request(Client* client)
+void IoUring::add_destination_read_request(Client* client)
 {
     ++client->awaiting_events_count;
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-    io_uring_prep_recv(sqe, client->destination_socket()->fd, client->buffer1().data(),
-                       BufferPool::HALF_BUFFER_SIZE, 0);
+    io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    if (m_is_root)
+    {
+        io_uring_prep_read_fixed(sqe, client->destination_socket()->fd, client->buffer1().data(),
+                                 BufferPool::HALF_BUFFER_SIZE, 0, static_cast<int>(client->buffer1_index));
+    }
+    else
+    {
+        io_uring_prep_read(sqe, client->destination_socket()->fd,client->buffer1().data(),
+                           BufferPool::HALF_BUFFER_SIZE, 0);
+    }
     Event& event = m_event_pool.obtain_event();
     event.client = client;
     event.type = EventType::DESTINATION_READ;
@@ -290,11 +354,20 @@ void IoUring::add_dst_read_request(Client* client)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_dst_write_request(Client* client, std::size_t nbytes)
+void IoUring::add_destination_write_request(Client* client, unsigned nbytes, unsigned offset)
 {
     ++client->awaiting_events_count;
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-    io_uring_prep_send(sqe, client->destination_socket()->fd, client->buffer0().data(), nbytes, MSG_WAITALL);
+    io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
+    if (m_is_root)
+    {
+        io_uring_prep_write_fixed(sqe, client->destination_socket()->fd, client->buffer0().data(),
+                                  nbytes, offset, static_cast<int>(client->buffer0_index));
+    }
+    else
+    {
+        io_uring_prep_write(sqe, client->destination_socket()->fd,
+                            client->buffer0().data(), nbytes, offset);
+    }
     Event& event = m_event_pool.obtain_event();
     event.client = client;
     event.type = EventType::DESTINATION_WRITE;
@@ -315,7 +388,7 @@ void Client::read_from_client()
     }
 }
 
-void Client::read_some_from_client(std::size_t n)
+void Client::read_some_from_client(unsigned n)
 {
     m_is_read_completed = [n, this](){ return m_read_buffer.size() >= n; };
     if (m_is_read_completed())
@@ -328,16 +401,18 @@ void Client::read_some_from_client(std::size_t n)
     }
 }
 
+// write function for common case, when client may
+// intend to write more data than one buffer can contain
 void Client::write_to_client()
 {
-    std::size_t cnt = std::min(BufferPool::HALF_BUFFER_SIZE, m_write_client_buffer.size());
+    unsigned cnt = std::min(BufferPool::HALF_BUFFER_SIZE, static_cast<unsigned>(m_write_client_buffer.size()));
     std::memcpy(m_buffer1.data(), m_write_client_buffer.data(), cnt);
     m_server.add_client_write_request(this, cnt);
 }
 
 void Client::read_client_greeting()
 {
-    //std::cerr << "Reading client greeting" << std::endl;
+    logger()->debug("Reading client greeting");
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
@@ -352,7 +427,7 @@ void Client::read_client_greeting()
 
 void Client::read_auth_methods()
 {
-    //std::cerr << "Reading auth methods" << std::endl;
+    logger()->debug("Reading auth methods");
     byte_t* from = m_read_buffer.data();
     byte_t* to = m_read_buffer.data() + m_auth_methods_count;
     // only 0x00 (no auth) is supported
@@ -374,7 +449,7 @@ void Client::read_auth_methods()
 
 void Client::read_client_connection_request()
 {
-    //std::cerr << "Reading client connection request" << std::endl;
+    logger()->debug("Reading client connection request");
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
@@ -460,7 +535,7 @@ void Client::connect_ipv4_destination()
         return;
     }
     m_state = State::CONNECTING_TO_DESTINATION;
-    m_server.add_dst_connect_request(this);
+    m_server.add_destination_connect_request(this);
 }
 
 void Client::connect_ipv6_destination()
@@ -475,18 +550,18 @@ void Client::connect_ipv6_destination()
         return;
     }
     m_state = State::CONNECTING_TO_DESTINATION;
-    m_server.add_dst_connect_request(this);
+    m_server.add_destination_connect_request(this);
 }
 
 void Client::read_address()
 {
-    //std::cerr << "Reading address" << std::endl;
+    logger()->debug("Reading address");
     switch (m_address_type)
     {
     case ADDRESS_TYPE_IPV4:
         std::memcpy(&m_ipv4_address, m_read_buffer.data(), 4);
         std::memcpy(&m_port, m_read_buffer.data() + 4, 2);
-        //std::cerr << "ADDR: " << m_ipv4_address.s_addr << ", PORT: " << m_port << std::endl;
+        logger()->debug("Got IPv4 address {0}, port {1}", ::inet_ntoa(m_ipv4_address), m_port);
         this->consume_bytes_from_read_buffer(6);
         this->connect_ipv4_destination();
         break;
@@ -495,14 +570,15 @@ void Client::read_address()
     {
         m_domain_name = std::string(m_read_buffer.data(), m_read_buffer.data() + m_domain_name_length);
         std::memcpy(&m_port, m_read_buffer.data() + m_domain_name_length, 2);
+        logger()->debug("Got domain name {0}, port {1}", m_domain_name, m_port);
         this->consume_bytes_from_read_buffer(m_domain_name_length + 2);
 
         hostent* he;
         he = ::gethostbyname(m_domain_name.c_str());
         if (he == nullptr || he->h_addr_list[0] == nullptr)
         {
+            logger()->debug("gethostbyname from '{0}' fail: {1}", m_domain_name, hstrerror(h_errno));
             this->send_fail_message();
-            ::herror("gethostbyname");
             return;
         }
 
@@ -534,12 +610,19 @@ void Client::read_address()
     }
 
     case ADDRESS_TYPE_IPV6:
+    {
         std::memcpy(&m_ipv6_address, m_read_buffer.data(), 16);
         std::memcpy(&m_port, m_read_buffer.data() + 16, 2);
-        //std::cerr << "ADDR: IPv6, PORT: " << m_port << std::endl;
+#ifndef NDEBUG
+        char address_string[INET6_ADDRSTRLEN];
+        const char* res = ::inet_ntop(AF_INET6, &m_ipv6_address, address_string, INET6_ADDRSTRLEN);
+        assert(res == address_string);
+        logger()->debug("Got IPv6 address {0}, port {1}", address_string, m_port);
+#endif
         this->consume_bytes_from_read_buffer(18);
         this->connect_ipv6_destination();
         break;
+    }
 
 #ifndef NDEBUG
     default:
@@ -551,11 +634,14 @@ void Client::read_address()
 
 // TODO: different fail messages
 
-void Client::handle_client_read(std::size_t nread)
+void Client::handle_client_read(unsigned nread)
 {
+    logger()->debug("CQE: read from client, nread = {}", nread);
     if (m_state == State::READING_USER_REQUESTS)
     {
-        m_server.add_dst_write_request(this, nread);
+        m_destination_write_offset = 0;
+        m_destination_write_size = nread;
+        m_server.add_destination_write_request(this, nread);
         return;
     }
 
@@ -565,9 +651,11 @@ void Client::handle_client_read(std::size_t nread)
     }
     if (!m_is_read_completed())
     {
+        logger()->debug("Partial read occurred, re-add read request");
         m_server.add_client_read_request(this);
         return;
     }
+    logger()->debug("Whole read completed");
 
     switch (m_state)
     {
@@ -597,21 +685,33 @@ void Client::handle_client_read(std::size_t nread)
     }
 }
 
-void Client::handle_client_write(std::size_t nwrite)
+void Client::handle_client_write(unsigned nwrite)
 {
+    logger()->debug("CQE: write to client, nwrite = {}", nwrite);
     if (m_state == State::READING_USER_REQUESTS)
     {
-        m_server.add_dst_read_request(this);
+        if (LIKELY(nwrite + m_client_write_offset == m_client_write_size))
+        {
+            logger()->debug("Whole write to client completed");
+            m_server.add_destination_read_request(this);
+        }
+        else
+        {
+            logger()->debug("Partial write to client occurred, re-add write request");
+            m_client_write_offset += nwrite;
+            m_server.add_client_write_request(this, m_client_write_size - m_client_write_offset, m_client_write_offset);
+        }
         return;
     }
 
-    //std::cerr << "client nwrite: " << nwrite << std::endl;
     m_write_client_buffer.erase(m_write_client_buffer.begin(), m_write_client_buffer.begin() + nwrite);
     if (!m_write_client_buffer.empty())
     {
+        logger()->debug("Partial write to client occurred, re-add write request");
         this->write_to_client();
         return;
     }
+    logger()->debug("Whole write to client completed");
 
     switch (m_state)
     {
@@ -619,7 +719,6 @@ void Client::handle_client_write(std::size_t nwrite)
         assert(false);
         break;
     case State::READING_AUTH_METHODS:
-        //std::cerr << "After reply auth methods" << std::endl;
         m_state = State::READING_CLIENT_CONNECTION_REQUEST;
         this->read_some_from_client(4);
         break;
@@ -633,9 +732,8 @@ void Client::handle_client_write(std::size_t nwrite)
         assert(false);
         break;
     case State::CONNECTING_TO_DESTINATION:
-        //std::cerr << "After reply address accepted" << std::endl;
         m_state = State::READING_USER_REQUESTS;
-        m_server.add_dst_read_request(this);
+        m_server.add_destination_read_request(this);
         this->read_from_client();
         break;
     case State::READING_USER_REQUESTS:
@@ -677,19 +775,31 @@ void Client::handle_dst_connect()
     }
 }
 
-void Client::handle_dst_read(std::size_t nread)
+void Client::handle_dst_read(unsigned nread)
 {
-    //std::cerr << "DST READ " << nread << std::endl;
+    logger()->debug("CQE: read from destination, nread = {}", nread);
+    m_client_write_offset = 0;
+    m_client_write_size = nread;
     m_server.add_client_write_request(this, nread);
 }
 
-void Client::handle_dst_write(std::size_t nwrite)
+void Client::handle_dst_write(unsigned nwrite)
 {
-    //std::cerr << "DST WRITE " << nwrite << std::endl;
-    m_server.add_client_read_request(this);
+    logger()->debug("CQE: write to destination, nwrite = {}", nwrite);
+    if (LIKELY(nwrite + m_destination_write_offset == m_destination_write_size))
+    {
+        logger()->debug("Whole write to destination completed");
+        m_server.add_client_read_request(this);
+    }
+    else
+    {
+        logger()->debug("Partial write to destination occurred, re-add write request");
+        m_destination_write_offset += nwrite;
+        m_server.add_destination_write_request(this, m_destination_write_size - m_destination_write_offset, m_destination_write_offset);
+    }
 }
 
-void Client::consume_bytes_from_read_buffer(std::size_t nread)
+void Client::consume_bytes_from_read_buffer(unsigned nread)
 {
     m_read_buffer.erase(m_read_buffer.begin(), m_read_buffer.begin() + nread);
 }
@@ -699,10 +809,11 @@ Client::~Client()
     try
     {
         syscall_wrapper::close(fd);
-        m_buffer_pool.return_buffer(buffer_index);
+        m_buffer_pool.return_buffer(m_buffer_index);
     }
     catch (...)
     {
+        logger()->critical("Unhandled exception in Client::~Client()");
         std::exit(EXIT_FAILURE);
     }
 }
