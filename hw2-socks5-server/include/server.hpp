@@ -106,9 +106,9 @@ public:
 
     void handle_client_read(unsigned nread);
     void handle_client_write(unsigned nwrite);
-    void handle_dst_connect();
-    void handle_dst_read(unsigned nread);
-    void handle_dst_write(unsigned nwrite);
+    void handle_destination_connect();
+    void handle_destination_read(unsigned nread);
+    void handle_destination_write(unsigned nwrite);
 
     [[nodiscard]] Socket* destination_socket() { return m_destination_socket.get(); }
 

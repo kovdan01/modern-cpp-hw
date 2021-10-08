@@ -243,12 +243,12 @@ void IoUring::event_loop()
                         event->client->handle_client_write(static_cast<unsigned>(cqe->res));
                         break;
                     case EventType::DESTINATION_CONNECT:
-                        event->client->handle_dst_connect();
+                        event->client->handle_destination_connect();
                         break;
                     case EventType::DESTINATION_READ:
                         if (LIKELY(cqe->res != 0))
                         {
-                            event->client->handle_dst_read(static_cast<unsigned>(cqe->res));
+                            event->client->handle_destination_read(static_cast<unsigned>(cqe->res));
                         }
                         else  // empty read indicates that destination disconnected
                         {
@@ -256,7 +256,7 @@ void IoUring::event_loop()
                         }
                         break;
                     case EventType::DESTINATION_WRITE:
-                        event->client->handle_dst_write(static_cast<unsigned>(cqe->res));
+                        event->client->handle_destination_write(static_cast<unsigned>(cqe->res));
                         break;
                     }
                     if (event->client->fail && event->client->awaiting_events_count == 0)
@@ -775,7 +775,7 @@ void Client::handle_client_write(unsigned nwrite)
     }
 }
 
-void Client::handle_dst_connect()
+void Client::handle_destination_connect()
 {
     assert(m_state == State::CONNECTING_TO_DESTINATION);
     switch (m_address_type)
@@ -808,7 +808,7 @@ void Client::handle_dst_connect()
     }
 }
 
-void Client::handle_dst_read(unsigned nread)
+void Client::handle_destination_read(unsigned nread)
 {
     logger()->debug("CQE: read from destination, nread = {}", nread);
     m_client_write_offset = 0;
@@ -816,7 +816,7 @@ void Client::handle_dst_read(unsigned nread)
     m_server.add_client_write_request(this, nread);
 }
 
-void Client::handle_dst_write(unsigned nwrite)
+void Client::handle_destination_write(unsigned nwrite)
 {
     logger()->debug("CQE: write to destination, nwrite = {}", nwrite);
     if (LIKELY(nwrite + m_destination_write_offset == m_destination_write_size))
