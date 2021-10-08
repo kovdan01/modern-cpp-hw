@@ -11,6 +11,7 @@ struct Params
 {
     unsigned threads_count;
     in_port_t port;
+    bool kerlen_polling;
 };
 
 static std::optional<Params> parse_cmd_line(int argc, char* argv[])
@@ -40,17 +41,28 @@ static std::optional<Params> parse_cmd_line(int argc, char* argv[])
         );
         cmd.add(port_arg);
 
+        TCLAP::SwitchArg kernel_polling_arg(
+            /* short flag */    "k",
+            /* long flag */     "kernel_polling",
+            /* description */   "Enable kernel polling (root required)",
+            /* default */       false
+        );
+        cmd.add(kernel_polling_arg);
+
         cmd.parse(argc, argv);
         unsigned threads_count = threads_count_arg.getValue();
         in_port_t port = port_arg.getValue();
+        bool kernel_polling = kernel_polling_arg.getValue();
 
         if (threads_count == 0)
             threads_count = default_thread_count;
 
         hw2::logger()->info("Using {0:d} threads", threads_count);
         hw2::logger()->info("Using port {0:d}", port);
+        if (kernel_polling)
+            hw2::logger()->info("Using kernel polling");
      
-        return Params{ .threads_count = threads_count, .port = port };
+        return Params{ .threads_count = threads_count, .port = port, .kerlen_polling = kernel_polling };
     }
     catch (TCLAP::ArgException& e)
     {
@@ -102,9 +114,9 @@ int main(int argc, char* argv[]) try
         unsigned nconnections = 4096;
         hw2::MainSocket server_socket(params->port, static_cast<int>(nconnections * params->threads_count));
 
-        auto thread_function = [&server_socket, nconnections]()
+        auto thread_function = [&server_socket, nconnections, &params]()
         {
-            hw2::IoUring uring(server_socket, nconnections);
+            hw2::IoUring uring(server_socket, nconnections, params->kerlen_polling);
             uring.event_loop();
         };
 

@@ -15,7 +15,6 @@
 #include <memory>
 #include <queue>
 #include <span>
-#include <thread>
 #include <vector>
 
 namespace hw2
@@ -123,16 +122,13 @@ Client::Client(int fd, IoUring& server, BufferPool& buffer_pool)
 }
 
 
-IoUring::IoUring(const MainSocket& socket, unsigned nconnections)
+IoUring::IoUring(const MainSocket& socket, unsigned nconnections, bool kernel_polling)
     : m_socket(socket)
     , m_event_pool(nconnections)
     , m_buffer_pool(nconnections)
     , m_is_root(::geteuid() == 0 ? true : false)
 {
-    // TODO: support kernel polling
-    int poll = false;  // kernel polling, root required
-
-    if (poll)
+    if (kernel_polling)
     {
         if (!m_is_root)
         {
@@ -142,8 +138,8 @@ IoUring::IoUring(const MainSocket& socket, unsigned nconnections)
 
     struct io_uring_params params;
     std::memset(&params, 0, sizeof(io_uring_params));
-    params.flags = poll ? IORING_SETUP_SQPOLL | IORING_SETUP_SQ_AFF : 0;
-    params.sq_thread_idle = std::numeric_limits<std::uint32_t>::max();
+    params.flags = kernel_polling ? IORING_SETUP_SQPOLL | IORING_SETUP_SQ_AFF : 0;
+    params.sq_thread_idle = 5'000;
     if (io_uring_queue_init_params(nconnections, &m_ring, &params) != 0)
         throw std::runtime_error("io_uring_queue_init_params");
 

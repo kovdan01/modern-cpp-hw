@@ -6,7 +6,6 @@
 #include <liburing.h>
 #include <netdb.h>
 
-#include <cassert>
 #include <functional>
 #include <memory>
 #include <queue>
@@ -203,7 +202,7 @@ private:
 class IoUring
 {
 public:
-    IoUring(const MainSocket& socket, unsigned nconnections);
+    IoUring(const MainSocket& socket, unsigned nconnections, bool kernel_polling = false);
 
     ~IoUring();
 
