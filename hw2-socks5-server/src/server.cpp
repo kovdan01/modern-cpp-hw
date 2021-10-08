@@ -1,4 +1,4 @@
-#include <event_loop.hpp>
+#include <server.hpp>
 #include <socket.hpp>
 #include <syscall.hpp>
 #include <utils.hpp>
@@ -263,6 +263,10 @@ void IoUring::event_loop()
                         event->client->handle_dst_write(static_cast<unsigned>(cqe->res));
                         break;
                     }
+                    if (event->client->fail && event->client->awaiting_events_count == 0)
+                    {
+                        delete event->client;
+                    }
                 }
                 m_event_pool.return_event(*event);
             }
@@ -416,10 +420,15 @@ void Client::read_client_greeting()
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
-        this->send_fail_message();
+        fail = true;
         return;
     }
     m_auth_methods_count = m_read_buffer[1];
+    if (m_auth_methods_count == 0)
+    {
+        fail = true;
+        return;
+    }
     this->consume_bytes_from_read_buffer(2);
     m_state = State::READING_AUTH_METHODS;
     this->read_some_from_client(m_auth_methods_count);
@@ -453,19 +462,22 @@ void Client::read_client_connection_request()
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
-        this->send_fail_message();
+        this->send_fail_message(0x07);  // Command not supported / protocol error
         return;
     }
 
     byte_t command = m_read_buffer[1];
-    // TODO: handle properly
-    assert(command == COMMAND_CONNECT);
+    if (command != COMMAND_CONNECT)
+    {
+        this->send_fail_message(0x07);  // Command not supported / protocol error
+        return;
+    }
     m_command = COMMAND_CONNECT;
 
     byte_t reserved = m_read_buffer[2];
     if (reserved != 0x00)
     {
-        this->send_fail_message();
+        this->send_fail_message(0x07);  // Command not supported / protocol error
         return;
     }
 
@@ -511,16 +523,35 @@ void Client::read_domain_name_length()
     this->read_some_from_client(m_domain_name_length + 2);
 }
 
-void Client::send_fail_message()
+void Client::send_fail_message(byte_t error_code)
 {
     fail = true;
     m_write_client_buffer.resize(10);
     m_write_client_buffer[0] = 0x05;  // protocol version
-    m_write_client_buffer[1] = 0x05;  // general failure
+    m_write_client_buffer[1] = error_code;
     m_write_client_buffer[2] = 0x00;  // reserved
     m_write_client_buffer[3] = 0x01;  // IPv4
     std::memset(m_write_client_buffer.data() + 4, 0, 6);
     this->write_to_client();
+}
+
+void Client::translate_errno(int error_code)
+{
+    switch (error_code)
+    {
+    case ENETUNREACH:  // Network unreachable
+        this->send_fail_message(0x03);
+        break;
+    case EHOSTUNREACH:  // Host is unreachable
+        this->send_fail_message(0x04);
+        break;
+    case ECONNREFUSED:  // Connection refused
+        this->send_fail_message(0x05);
+        break;
+    default:
+        this->send_fail_message();
+        break;
+    }
 }
 
 void Client::connect_ipv4_destination()
@@ -528,6 +559,10 @@ void Client::connect_ipv4_destination()
     try
     {
         m_destination_socket = std::make_unique<SocketIPv4>(m_ipv4_address, m_port);
+    }
+    catch (syscall_wrapper::Error& e)
+    {
+        this->translate_errno(e.error_code);
     }
     catch (...)
     {
@@ -543,6 +578,10 @@ void Client::connect_ipv6_destination()
     try
     {
         m_destination_socket = std::make_unique<SocketIPv6>(m_ipv6_address, m_port);
+    }
+    catch (syscall_wrapper::Error& e)
+    {
+        this->translate_errno(e.error_code);
     }
     catch (...)
     {
@@ -578,7 +617,7 @@ void Client::read_address()
         if (he == nullptr || he->h_addr_list[0] == nullptr)
         {
             logger()->debug("gethostbyname from '{0}' fail: {1}", m_domain_name, hstrerror(h_errno));
-            this->send_fail_message();
+            this->send_fail_message(0x04);  // Host unreachable
             return;
         }
 
@@ -631,8 +670,6 @@ void Client::read_address()
 #endif
     }
 }
-
-// TODO: different fail messages
 
 void Client::handle_client_read(unsigned nread)
 {

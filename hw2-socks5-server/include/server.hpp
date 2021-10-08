@@ -125,7 +125,8 @@ private:
     void read_domain_name_length();
     void read_address();
 
-    void send_fail_message();
+    void translate_errno(int error_code);
+    void send_fail_message(byte_t error_code = 0x01);
 
     void connect_ipv4_destination();
     void connect_ipv6_destination();

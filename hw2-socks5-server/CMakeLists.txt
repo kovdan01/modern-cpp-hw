@@ -24,12 +24,12 @@ pkg_check_modules(tclap REQUIRED IMPORTED_TARGET tclap)
 find_package(spdlog REQUIRED)
 
 add_executable(${PROJECT_NAME}
-    include/event_loop.hpp
+    include/server.hpp
     include/socket.hpp
     include/syscall.hpp
     include/utils.hpp
-    src/event_loop.cpp
     src/main.cpp
+    src/server.cpp
     src/socket.cpp
     src/syscall.cpp
     src/utils.cpp
