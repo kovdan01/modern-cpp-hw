@@ -2,6 +2,7 @@
 #define HW2_SOCKS5_SERVER_SYSCALL_HPP_
 
 #include <arpa/inet.h>
+#include <sys/resource.h>
 
 #include <stdexcept>
 #include <string>
@@ -26,6 +27,8 @@ void close(int fd);
 void bind(int fd, const sockaddr_in& address);
 void listen(int fd, int maxqueue);
 void setsockopt_reuseaddr(int fd);
+rlimit getrlimit_nofile();
+void setrlimit_nofile(rlimit file_limit);
 
 }  // namespace hw2::syscall_wrapper
 

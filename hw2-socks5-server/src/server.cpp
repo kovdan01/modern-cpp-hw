@@ -199,7 +199,11 @@ void IoUring::event_loop()
             if (cqe->user_data != 0)
             {
                 Event* event = reinterpret_cast<Event*>(cqe->user_data);
-                event->client->fail = true;
+                --event->client->awaiting_events_count;
+                if (event->client->awaiting_events_count == 0)
+                    delete event->client;
+                else
+                    event->client->fail = true;
                 m_event_pool.return_event(*event);
             }
         }

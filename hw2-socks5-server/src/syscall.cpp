@@ -73,4 +73,24 @@ void setsockopt_reuseaddr(int fd)
     }
 }
 
+rlimit getrlimit_nofile()
+{
+    rlimit file_limit;
+    if (::getrlimit(RLIMIT_NOFILE, &file_limit) != 0)
+    {
+        std::perror("getrlimit");
+        throw Error("getrlimit", errno);
+    }
+    return file_limit;
+}
+
+void setrlimit_nofile(rlimit file_limit)
+{
+    if (::setrlimit(RLIMIT_NOFILE, &file_limit) != 0)
+    {
+        std::perror("setrlimit");
+        throw Error("setrlimit", errno);
+    }
+}
+
 }  // namespace hw2::syscall_wrapper
