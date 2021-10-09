@@ -623,7 +623,7 @@ void Client::read_address()
         {
             m_address_type = ADDRESS_TYPE_IPV4;
             in_addr* addr = reinterpret_cast<in_addr*>(he->h_addr_list[0]);
-            std::memcpy(&m_ipv4_address, &addr, sizeof(in_addr));
+            std::memcpy(&m_ipv4_address, addr, sizeof(in_addr));
             this->connect_ipv4_destination();
             break;
         }
@@ -631,7 +631,7 @@ void Client::read_address()
         {
             m_address_type = ADDRESS_TYPE_IPV6;
             in6_addr* addr = reinterpret_cast<in6_addr*>(he->h_addr_list[0]);
-            std::memcpy(&m_ipv6_address, &addr, sizeof(in6_addr));
+            std::memcpy(&m_ipv6_address, addr, sizeof(in6_addr));
             this->connect_ipv6_destination();
             break;
         }
