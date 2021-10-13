@@ -107,21 +107,6 @@ std::span<byte_t> BufferPool::buffer_half1(unsigned buffer_index)
     return { m_buffers.data() + buffer_index * BUFFER_SIZE + HALF_BUFFER_SIZE, m_buffers.data() + (buffer_index + 1) * BUFFER_SIZE };
 }
 
-
-Client::Client(int fd, IoUring& server, BufferPool& buffer_pool)
-    : fd(fd)
-    , m_server(server)
-    , m_buffer_pool(buffer_pool)
-    , m_buffer_index(m_buffer_pool.obtain_free_buffer())
-    , buffer0_index(static_cast<unsigned>(2 * m_buffer_index + 0))
-    , buffer1_index(static_cast<unsigned>(2 * m_buffer_index + 1))
-    , m_buffer0(m_buffer_pool.buffer_half0(m_buffer_index))
-    , m_buffer1(m_buffer_pool.buffer_half1(m_buffer_index))
-{
-    m_is_read_completed = [](){ return true; };
-}
-
-
 IoUring::IoUring(const MainSocket& socket, unsigned nconnections, bool kernel_polling)
     : m_socket(socket)
     , m_event_pool(nconnections)
@@ -141,7 +126,10 @@ IoUring::IoUring(const MainSocket& socket, unsigned nconnections, bool kernel_po
     params.flags = kernel_polling ? IORING_SETUP_SQPOLL | IORING_SETUP_SQ_AFF : 0;
     params.sq_thread_idle = 5'000;
     if (io_uring_queue_init_params(nconnections, &m_ring, &params) != 0)
+    {
+        std::perror("io_uring_queue_init_params");
         throw std::runtime_error("io_uring_queue_init_params");
+    }
 
     if (m_is_root)
     {
@@ -164,10 +152,10 @@ void IoUring::handle_accept(const io_uring_cqe* cqe)
 {
     this->add_client_accept_request(&m_client_addr, &m_client_addr_len);
     int fd = cqe->res;
-    Client* client;
+    Session* client;
     try
     {
-        client = new Client{fd, *this, m_buffer_pool};
+        client = new Session{fd, *this, m_buffer_pool};
     }
     catch (const BufferPool::InsufficientBuffersException&)
     {
@@ -203,7 +191,7 @@ void IoUring::event_loop()
                 if (event->client->awaiting_events_count == 0)
                     delete event->client;
                 else
-                    event->client->fail = true;
+                    event->client->fail_immediately();
                 m_event_pool.return_event(*event);
             }
         }
@@ -217,7 +205,7 @@ void IoUring::event_loop()
             {
                 Event* event = reinterpret_cast<Event*>(cqe->user_data);
                 --event->client->awaiting_events_count;
-                if (event->client->fail)
+                if (event->client->is_failed())
                 {
                     if (event->client->awaiting_events_count == 0)
                     {
@@ -240,7 +228,7 @@ void IoUring::event_loop()
                         }
                         else  // empty read indicates that client disconnected
                         {
-                            event->client->fail = true;
+                            event->client->fail_immediately();
                         }
                         break;
                     case EventType::CLIENT_WRITE:
@@ -256,14 +244,14 @@ void IoUring::event_loop()
                         }
                         else  // empty read indicates that destination disconnected
                         {
-                            event->client->fail = true;
+                            event->client->fail_immediately();
                         }
                         break;
                     case EventType::DESTINATION_WRITE:
                         event->client->handle_destination_write(static_cast<unsigned>(cqe->res));
                         break;
                     }
-                    if (event->client->fail && event->client->awaiting_events_count == 0)
+                    if (event->client->is_failed() && event->client->awaiting_events_count == 0)
                     {
                         delete event->client;
                     }
@@ -278,23 +266,23 @@ void IoUring::event_loop()
 void IoUring::add_client_accept_request(struct sockaddr_in* client_addr, socklen_t* client_addr_len)
 {
     io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-    io_uring_prep_accept(sqe, m_socket.fd, reinterpret_cast<struct sockaddr*>(client_addr), client_addr_len, 0);
+    io_uring_prep_accept(sqe, m_socket.fd(), reinterpret_cast<struct sockaddr*>(client_addr), client_addr_len, 0);
     io_uring_sqe_set_data(sqe, nullptr);
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_client_read_request(Client* client)
+void IoUring::add_client_read_request(Session* client)
 {
     ++client->awaiting_events_count;
     io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     if (m_is_root)
     {
-        io_uring_prep_read_fixed(sqe, client->fd, client->buffer0().data(), BufferPool::HALF_BUFFER_SIZE,
+        io_uring_prep_read_fixed(sqe, client->fd(), client->buffer0().data(), BufferPool::HALF_BUFFER_SIZE,
                                  0, static_cast<int>(client->buffer0_index));
     }
     else
     {
-        io_uring_prep_read(sqe, client->fd, client->buffer0().data(),
+        io_uring_prep_read(sqe, client->fd(), client->buffer0().data(),
                            BufferPool::BUFFER_SIZE, 0);
     }
     Event& event = m_event_pool.obtain_event();
@@ -304,18 +292,18 @@ void IoUring::add_client_read_request(Client* client)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_client_write_request(Client* client, unsigned nbytes, unsigned offset)
+void IoUring::add_client_write_request(Session* client, unsigned nbytes, unsigned offset)
 {
     ++client->awaiting_events_count;
     io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     if (m_is_root)
     {
-        io_uring_prep_write_fixed(sqe, client->fd, client->buffer1().data(),
+        io_uring_prep_write_fixed(sqe, client->fd(), client->buffer1().data(),
                                   nbytes, offset, static_cast<int>(client->buffer1_index));
     }
     else
     {
-        io_uring_prep_write(sqe, client->fd, client->buffer1().data(), nbytes, offset);
+        io_uring_prep_write(sqe, client->fd(), client->buffer1().data(), nbytes, offset);
     }
     Event& event = m_event_pool.obtain_event();
     event.client = client;
@@ -324,10 +312,10 @@ void IoUring::add_client_write_request(Client* client, unsigned nbytes, unsigned
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_destination_connect_request(Client* client)
+void IoUring::add_destination_connect_request(Session* client)
 {
     io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
-    io_uring_prep_connect(sqe, client->destination_socket()->fd,
+    io_uring_prep_connect(sqe, client->destination_socket()->fd(),
                           client->destination_socket()->address(),
                           client->destination_socket()->address_length());
     Event& event = m_event_pool.obtain_event();
@@ -337,18 +325,18 @@ void IoUring::add_destination_connect_request(Client* client)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_destination_read_request(Client* client)
+void IoUring::add_destination_read_request(Session* client)
 {
     ++client->awaiting_events_count;
     io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     if (m_is_root)
     {
-        io_uring_prep_read_fixed(sqe, client->destination_socket()->fd, client->buffer1().data(),
+        io_uring_prep_read_fixed(sqe, client->destination_socket()->fd(), client->buffer1().data(),
                                  BufferPool::HALF_BUFFER_SIZE, 0, static_cast<int>(client->buffer1_index));
     }
     else
     {
-        io_uring_prep_read(sqe, client->destination_socket()->fd,client->buffer1().data(),
+        io_uring_prep_read(sqe, client->destination_socket()->fd(), client->buffer1().data(),
                            BufferPool::HALF_BUFFER_SIZE, 0);
     }
     Event& event = m_event_pool.obtain_event();
@@ -358,18 +346,18 @@ void IoUring::add_destination_read_request(Client* client)
     io_uring_submit(&m_ring);
 }
 
-void IoUring::add_destination_write_request(Client* client, unsigned nbytes, unsigned offset)
+void IoUring::add_destination_write_request(Session* client, unsigned nbytes, unsigned offset)
 {
     ++client->awaiting_events_count;
     io_uring_sqe* sqe = io_uring_get_sqe(&m_ring);
     if (m_is_root)
     {
-        io_uring_prep_write_fixed(sqe, client->destination_socket()->fd, client->buffer0().data(),
+        io_uring_prep_write_fixed(sqe, client->destination_socket()->fd(), client->buffer0().data(),
                                   nbytes, offset, static_cast<int>(client->buffer0_index));
     }
     else
     {
-        io_uring_prep_write(sqe, client->destination_socket()->fd,
+        io_uring_prep_write(sqe, client->destination_socket()->fd(),
                             client->buffer0().data(), nbytes, offset);
     }
     Event& event = m_event_pool.obtain_event();
@@ -379,7 +367,44 @@ void IoUring::add_destination_write_request(Client* client, unsigned nbytes, uns
     io_uring_submit(&m_ring);
 }
 
-void Client::read_from_client()
+Session::Session(int fd, IoUring& server, BufferPool& buffer_pool)
+    : m_fd(fd)
+    , m_server(server)
+    , m_buffer_pool(buffer_pool)
+    , m_buffer_index(m_buffer_pool.obtain_free_buffer())
+    , buffer0_index(static_cast<unsigned>(2 * m_buffer_index + 0))
+    , buffer1_index(static_cast<unsigned>(2 * m_buffer_index + 1))
+    , m_buffer0(m_buffer_pool.buffer_half0(m_buffer_index))
+    , m_buffer1(m_buffer_pool.buffer_half1(m_buffer_index))
+{
+    m_is_read_completed = [](){ return true; };
+}
+
+int Session::fd() const
+{
+    return m_fd;
+}
+
+void Session::fail_delayed()
+{
+    m_is_failed = true;
+    m_destination_socket.reset();
+}
+
+void Session::fail_immediately()
+{
+    this->fail_delayed();
+    int fd = m_fd;
+    m_fd = -1;
+    syscall_wrapper::close(fd);
+}
+
+bool Session::is_failed() const
+{
+    return m_is_failed;
+}
+
+void Session::read_from_client()
 {
     m_is_read_completed = [this](){ return !m_read_buffer.empty(); };
     if (m_is_read_completed())
@@ -392,7 +417,7 @@ void Client::read_from_client()
     }
 }
 
-void Client::read_some_from_client(unsigned n)
+void Session::read_some_from_client(unsigned n)
 {
     m_is_read_completed = [n, this](){ return m_read_buffer.size() >= n; };
     if (m_is_read_completed())
@@ -407,26 +432,26 @@ void Client::read_some_from_client(unsigned n)
 
 // write function for common case, when client may
 // intend to write more data than one buffer can contain
-void Client::write_to_client()
+void Session::write_to_client()
 {
     unsigned cnt = std::min(BufferPool::HALF_BUFFER_SIZE, static_cast<unsigned>(m_write_client_buffer.size()));
     std::memcpy(m_buffer1.data(), m_write_client_buffer.data(), cnt);
     m_server.add_client_write_request(this, cnt);
 }
 
-void Client::read_client_greeting()
+void Session::read_client_greeting()
 {
     logger()->debug("Reading client greeting");
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
-        fail = true;
+        this->fail_immediately();
         return;
     }
     m_auth_methods_count = m_read_buffer[1];
     if (m_auth_methods_count == 0)
     {
-        fail = true;
+        this->fail_immediately();
         return;
     }
     this->consume_bytes_from_read_buffer(2);
@@ -434,7 +459,7 @@ void Client::read_client_greeting()
     this->read_some_from_client(m_auth_methods_count);
 }
 
-void Client::read_auth_methods()
+void Session::read_auth_methods()
 {
     logger()->debug("Reading auth methods");
     byte_t* from = m_read_buffer.data();
@@ -443,7 +468,7 @@ void Client::read_auth_methods()
     if (std::find(from, to, 0x00) == to)
     {
         m_auth_method = 0xFF;  // no acceptable methods were offered
-        fail = true;
+        this->fail_delayed();
     }
     else
     {
@@ -456,7 +481,7 @@ void Client::read_auth_methods()
     this->write_to_client();
 }
 
-void Client::read_client_connection_request()
+void Session::read_client_connection_request()
 {
     logger()->debug("Reading client connection request");
     byte_t version = m_read_buffer[0];
@@ -503,19 +528,12 @@ void Client::read_client_connection_request()
         this->read_some_from_client(18);
         break;
     default:
-        fail = true;
-        m_write_client_buffer.resize(10);
-        m_write_client_buffer[0] = 0x05;  // protocol version
-        m_write_client_buffer[1] = 0x05;  // general failure
-        m_write_client_buffer[2] = 0x00;  // reserved
-        m_write_client_buffer[3] = 0x01;  // IPv4
-        std::memset(m_write_client_buffer.data() + 4, 0, 6);
-        this->write_to_client();
+        this->send_fail_message();
         break;
     }
 }
 
-void Client::read_domain_name_length()
+void Session::read_domain_name_length()
 {
     m_domain_name_length = m_read_buffer[0];
     this->consume_bytes_from_read_buffer(1);
@@ -523,9 +541,9 @@ void Client::read_domain_name_length()
     this->read_some_from_client(m_domain_name_length + 2);
 }
 
-void Client::send_fail_message(byte_t error_code)
+void Session::send_fail_message(byte_t error_code)
 {
-    fail = true;
+    this->fail_delayed();
     m_write_client_buffer.resize(10);
     m_write_client_buffer[0] = 0x05;  // protocol version
     m_write_client_buffer[1] = error_code;
@@ -535,7 +553,7 @@ void Client::send_fail_message(byte_t error_code)
     this->write_to_client();
 }
 
-void Client::translate_errno(int error_code)
+void Session::translate_errno(int error_code)
 {
     switch (error_code)
     {
@@ -554,7 +572,7 @@ void Client::translate_errno(int error_code)
     }
 }
 
-void Client::connect_ipv4_destination()
+void Session::connect_ipv4_destination()
 {
     try
     {
@@ -573,7 +591,7 @@ void Client::connect_ipv4_destination()
     m_server.add_destination_connect_request(this);
 }
 
-void Client::connect_ipv6_destination()
+void Session::connect_ipv6_destination()
 {
     try
     {
@@ -592,7 +610,7 @@ void Client::connect_ipv6_destination()
     m_server.add_destination_connect_request(this);
 }
 
-void Client::read_address()
+void Session::read_address()
 {
     logger()->debug("Reading address");
     switch (m_address_type)
@@ -671,10 +689,10 @@ void Client::read_address()
     }
 }
 
-void Client::handle_client_read(unsigned nread)
+void Session::handle_client_read(unsigned nread)
 {
     logger()->debug("CQE: read from client, nread = {}", nread);
-    if (m_state == State::READING_USER_REQUESTS)
+    if (m_state == State::PROXYING_REQUESTS)
     {
         m_destination_write_offset = 0;
         m_destination_write_size = nread;
@@ -715,17 +733,17 @@ void Client::handle_client_read(unsigned nread)
     case State::CONNECTING_TO_DESTINATION:
         assert(false);
         break;
-    case State::READING_USER_REQUESTS:
+    case State::PROXYING_REQUESTS:
         assert(false);
         break;
 #endif
     }
 }
 
-void Client::handle_client_write(unsigned nwrite)
+void Session::handle_client_write(unsigned nwrite)
 {
     logger()->debug("CQE: write to client, nwrite = {}", nwrite);
-    if (m_state == State::READING_USER_REQUESTS)
+    if (m_state == State::PROXYING_REQUESTS)
     {
         if (LIKELY(nwrite + m_client_write_offset == m_client_write_size))
         {
@@ -769,17 +787,17 @@ void Client::handle_client_write(unsigned nwrite)
         assert(false);
         break;
     case State::CONNECTING_TO_DESTINATION:
-        m_state = State::READING_USER_REQUESTS;
+        m_state = State::PROXYING_REQUESTS;
         m_server.add_destination_read_request(this);
         this->read_from_client();
         break;
-    case State::READING_USER_REQUESTS:
+    case State::PROXYING_REQUESTS:
         assert(false);
         break;
     }
 }
 
-void Client::handle_destination_connect()
+void Session::handle_destination_connect()
 {
     assert(m_state == State::CONNECTING_TO_DESTINATION);
     switch (m_address_type)
@@ -812,7 +830,7 @@ void Client::handle_destination_connect()
     }
 }
 
-void Client::handle_destination_read(unsigned nread)
+void Session::handle_destination_read(unsigned nread)
 {
     logger()->debug("CQE: read from destination, nread = {}", nread);
     m_client_write_offset = 0;
@@ -820,7 +838,7 @@ void Client::handle_destination_read(unsigned nread)
     m_server.add_client_write_request(this, nread);
 }
 
-void Client::handle_destination_write(unsigned nwrite)
+void Session::handle_destination_write(unsigned nwrite)
 {
     logger()->debug("CQE: write to destination, nwrite = {}", nwrite);
     if (LIKELY(nwrite + m_destination_write_offset == m_destination_write_size))
@@ -836,16 +854,17 @@ void Client::handle_destination_write(unsigned nwrite)
     }
 }
 
-void Client::consume_bytes_from_read_buffer(unsigned nread)
+void Session::consume_bytes_from_read_buffer(unsigned nread)
 {
     m_read_buffer.erase(m_read_buffer.begin(), m_read_buffer.begin() + nread);
 }
 
-Client::~Client()
+Session::~Session()
 {
     try
     {
-        syscall_wrapper::close(fd);
+        if (m_fd != -1)
+            syscall_wrapper::close(m_fd);
         m_buffer_pool.return_buffer(m_buffer_index);
     }
     catch (...)

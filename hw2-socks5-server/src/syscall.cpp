@@ -78,8 +78,8 @@ rlimit getrlimit_nofile()
     rlimit file_limit;
     if (::getrlimit(RLIMIT_NOFILE, &file_limit) != 0)
     {
-        std::perror("getrlimit");
-        throw Error("getrlimit", errno);
+        std::perror("getrlimit nofile");
+        throw Error("getrlimit nofile", errno);
     }
     return file_limit;
 }
@@ -88,8 +88,28 @@ void setrlimit_nofile(rlimit file_limit)
 {
     if (::setrlimit(RLIMIT_NOFILE, &file_limit) != 0)
     {
-        std::perror("setrlimit");
-        throw Error("setrlimit", errno);
+        std::perror("setrlimit nofile");
+        throw Error("setrlimit nofile", errno);
+    }
+}
+
+rlimit getrlimit_memlock()
+{
+    rlimit file_limit;
+    if (::getrlimit(RLIMIT_MEMLOCK, &file_limit) != 0)
+    {
+        std::perror("getrlimit memlock");
+        throw Error("getrlimit memlock", errno);
+    }
+    return file_limit;
+}
+
+void setrlimit_memlock(rlimit memory_limit)
+{
+    if (::setrlimit(RLIMIT_MEMLOCK, &memory_limit) != 0)
+    {
+        std::perror("setrlimit memlock");
+        throw Error("setrlimit memlock", errno);
     }
 }
 

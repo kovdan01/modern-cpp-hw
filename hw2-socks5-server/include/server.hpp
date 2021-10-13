@@ -27,12 +27,12 @@ enum class EventType
     DESTINATION_WRITE,
 };
 
-class Client;
+class Session;
 
 struct Event
 {
     std::size_t id;
-    Client* client;
+    Session* client;
     EventType type;
 };
 
@@ -89,11 +89,11 @@ private:
 
 class IoUring;
 
-class Client
+class Session
 {
 public:
-    Client(int fd, IoUring& server, BufferPool& buffers);
-    ~Client();
+    Session(int fd, IoUring& server, BufferPool& buffers);
+    ~Session();
 
     void write_to_client();
     void read_from_client();
@@ -112,10 +112,13 @@ public:
 
     [[nodiscard]] Socket* destination_socket() { return m_destination_socket.get(); }
 
-    const int fd;
-    bool fail = false;
+    [[nodiscard]] int fd() const;
+    void fail_delayed();
+    void fail_immediately();
+    [[nodiscard]] bool is_failed() const;
 
 private:
+
     void consume_bytes_from_read_buffer(unsigned nread);
 
     void read_client_greeting();
@@ -139,7 +142,7 @@ private:
         READING_DOMAIN_NAME_LENGTH,
         READING_ADDRESS,
         CONNECTING_TO_DESTINATION,
-        READING_USER_REQUESTS,
+        PROXYING_REQUESTS,
     };
 
     enum Command
@@ -157,9 +160,10 @@ private:
     };
 
 private:
+    int m_fd = -1;
     State m_state = State::READING_CLIENT_GREETING;
-
     IoUring& m_server;
+
 public:
     std::size_t awaiting_events_count = 0;
 
@@ -197,6 +201,8 @@ private:
     unsigned m_client_write_offset;
     unsigned m_destination_write_size;
     unsigned m_destination_write_offset;
+
+    bool m_is_failed = false;
 };
 
 class IoUring
@@ -209,11 +215,11 @@ public:
     void event_loop();
 
     void add_client_accept_request(struct sockaddr_in* client_addr, socklen_t* client_addr_len);
-    void add_client_read_request(Client* client);
-    void add_client_write_request(Client* client, unsigned nbytes, unsigned offset = 0);
-    void add_destination_connect_request(Client* client);
-    void add_destination_read_request(Client* client);
-    void add_destination_write_request(Client* client, unsigned nbytes, unsigned offset = 0);
+    void add_client_read_request(Session* client);
+    void add_client_write_request(Session* client, unsigned nbytes, unsigned offset = 0);
+    void add_destination_connect_request(Session* client);
+    void add_destination_read_request(Session* client);
+    void add_destination_write_request(Session* client, unsigned nbytes, unsigned offset = 0);
 
 private:
     void handle_accept(const io_uring_cqe* cqe);
