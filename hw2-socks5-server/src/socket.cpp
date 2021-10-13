@@ -25,21 +25,37 @@ static sockaddr_in6 construct_address_ipv6(in6_addr addr, in_port_t port)
 }
 
 Socket::Socket(int fd)
-    : fd(fd)
+    : m_fd(fd)
 {
 }
 
 Socket::~Socket()
 {
-    try
+    if (m_fd != -1)
     {
-        syscall_wrapper::close(fd);
+        try
+        {
+            syscall_wrapper::close(m_fd);
+        }
+        catch (...)
+        {
+            logger()->critical("Unhandled exception in Socket::~Socket");
+            std::exit(EXIT_FAILURE);
+        }
     }
-    catch (...)
-    {
-        logger()->critical("Unhandled exception in Socket::~Socket");
-        std::exit(EXIT_FAILURE);
-    }
+}
+
+int Socket::fd() const
+{
+    return m_fd;
+}
+
+void Socket::close()
+{
+    // guarantee that m_fd becomes -1 even if close produces an error
+    int fd = m_fd;
+    m_fd = -1;
+    syscall_wrapper::close(fd);
 }
 
 SocketIPv4::SocketIPv4(in_addr addr, in_port_t port)
@@ -91,9 +107,9 @@ socklen_t SocketIPv6::address_length() const
 MainSocket::MainSocket(in_port_t port, int maxqueue)
     : SocketIPv4({INADDR_ANY}, ::htons(port))
 {
-    syscall_wrapper::setsockopt_reuseaddr(fd);
-    syscall_wrapper::bind(fd, m_address);
-    syscall_wrapper::listen(fd, maxqueue);
+    syscall_wrapper::setsockopt_reuseaddr(m_fd);
+    syscall_wrapper::bind(m_fd, m_address);
+    syscall_wrapper::listen(m_fd, maxqueue);
 }
 
 MainSocket::~MainSocket() = default;

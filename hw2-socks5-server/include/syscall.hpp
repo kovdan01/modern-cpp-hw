@@ -29,6 +29,8 @@ void listen(int fd, int maxqueue);
 void setsockopt_reuseaddr(int fd);
 rlimit getrlimit_nofile();
 void setrlimit_nofile(rlimit file_limit);
+rlimit getrlimit_memlock();
+void setrlimit_memlock(rlimit memory_limit);
 
 }  // namespace hw2::syscall_wrapper
 

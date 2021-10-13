@@ -28,7 +28,11 @@ public:
     [[nodiscard]] virtual sockaddr* address() = 0;
     [[nodiscard]] virtual socklen_t address_length() const = 0;
 
-    const int fd;
+    [[nodiscard]] int fd() const;
+    void close();
+
+protected:
+    int m_fd = -1;
 };
 
 class SocketIPv4 : public Socket

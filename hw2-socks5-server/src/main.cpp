@@ -111,16 +111,21 @@ int main(int argc, char* argv[]) try
             return EXIT_FAILURE;
         }
 
-        unsigned nconnections = (1 << 16) / params->threads_count;
-        hw2::MainSocket server_socket(params->port, (1 << 16));
+        constexpr int max_connections = 1 << 15;
+        unsigned one_thread_connections = max_connections / params->threads_count;
+        hw2::MainSocket server_socket(params->port, max_connections);
 
         rlimit file_limit = hw2::syscall_wrapper::getrlimit_nofile();
-        file_limit.rlim_cur = nconnections * params->threads_count * 2;
+        file_limit.rlim_cur = max_connections * 2;
         hw2::syscall_wrapper::setrlimit_nofile(file_limit);
 
-        auto thread_function = [&server_socket, nconnections, &params]()
+        rlimit memory_limit = hw2::syscall_wrapper::getrlimit_memlock();
+        memory_limit.rlim_cur = 1 << 16;
+        hw2::syscall_wrapper::setrlimit_memlock(memory_limit);
+
+        auto thread_function = [&server_socket, one_thread_connections, &params]()
         {
-            hw2::IoUring uring(server_socket, nconnections, params->kerlen_polling);
+            hw2::IoUring uring(server_socket, one_thread_connections, params->kerlen_polling);
             uring.event_loop();
         };
 
