@@ -183,7 +183,7 @@ void IoUring::event_loop()
 
         if (UNLIKELY(cqe->res < 0))
         {
-            logger()->debug("cqe fail: {0}", std::strerror(-cqe->res));
+            logger()->error("CQE fail: {0}", std::strerror(-cqe->res));
             if (cqe->user_data != 0)
             {
                 Event* event = reinterpret_cast<Event*>(cqe->user_data);
@@ -487,14 +487,16 @@ void Session::read_client_connection_request()
     byte_t version = m_read_buffer[0];
     if (version != 0x05)
     {
-        this->send_fail_message(0x07);  // Command not supported / protocol error
+        logger()->error("Version is not equal to 0x05");
+        this->send_fail_message(0x07);
         return;
     }
 
     byte_t command = m_read_buffer[1];
     if (command != COMMAND_CONNECT)
     {
-        this->send_fail_message(0x07);  // Command not supported / protocol error
+        logger()->error("Command not supported");
+        this->send_fail_message(0x07);
         return;
     }
     m_command = COMMAND_CONNECT;
@@ -502,7 +504,8 @@ void Session::read_client_connection_request()
     byte_t reserved = m_read_buffer[2];
     if (reserved != 0x00)
     {
-        this->send_fail_message(0x07);  // Command not supported / protocol error
+        logger()->error("Reserved byte is expected to be 0x00");
+        this->send_fail_message(0x07);
         return;
     }
 
@@ -528,7 +531,8 @@ void Session::read_client_connection_request()
         this->read_some_from_client(18);
         break;
     default:
-        this->send_fail_message();
+        logger()->error("Address type is not supported");
+        this->send_fail_message(0x08);
         break;
     }
 }
@@ -557,16 +561,20 @@ void Session::translate_errno(int error_code)
 {
     switch (error_code)
     {
-    case ENETUNREACH:  // Network unreachable
+    case ENETUNREACH:
+        logger()->error("Network unreachable");
         this->send_fail_message(0x03);
         break;
-    case EHOSTUNREACH:  // Host is unreachable
+    case EHOSTUNREACH:
+        logger()->error("Host is unreachable");
         this->send_fail_message(0x04);
         break;
-    case ECONNREFUSED:  // Connection refused
+    case ECONNREFUSED:
+        logger()->error("Connection refused");
         this->send_fail_message(0x05);
         break;
     default:
+        logger()->error("General failure");
         this->send_fail_message();
         break;
     }
@@ -584,6 +592,7 @@ void Session::connect_ipv4_destination()
     }
     catch (...)
     {
+        logger()->error("General failure");
         this->send_fail_message();
         return;
     }
@@ -603,6 +612,7 @@ void Session::connect_ipv6_destination()
     }
     catch (...)
     {
+        logger()->error("General failure");
         this->send_fail_message();
         return;
     }
@@ -618,7 +628,7 @@ void Session::read_address()
     case ADDRESS_TYPE_IPV4:
         std::memcpy(&m_ipv4_address, m_read_buffer.data(), 4);
         std::memcpy(&m_port, m_read_buffer.data() + 4, 2);
-        logger()->debug("Got IPv4 address {0}, port {1}", ::inet_ntoa(m_ipv4_address), m_port);
+        logger()->info("Got IPv4 address {0}, port {1}", ::inet_ntoa(m_ipv4_address), m_port);
         this->consume_bytes_from_read_buffer(6);
         this->connect_ipv4_destination();
         break;
@@ -627,14 +637,14 @@ void Session::read_address()
     {
         m_domain_name = std::string(m_read_buffer.data(), m_read_buffer.data() + m_domain_name_length);
         std::memcpy(&m_port, m_read_buffer.data() + m_domain_name_length, 2);
-        logger()->debug("Got domain name {0}, port {1}", m_domain_name, m_port);
+        logger()->info("Got domain name {0}, port {1}", m_domain_name, m_port);
         this->consume_bytes_from_read_buffer(m_domain_name_length + 2);
 
         hostent* he;
         he = ::gethostbyname(m_domain_name.c_str());
         if (he == nullptr || he->h_addr_list[0] == nullptr)
         {
-            logger()->debug("gethostbyname from '{0}' fail: {1}", m_domain_name, hstrerror(h_errno));
+            logger()->error("gethostbyname from '{0}' fail: {1}", m_domain_name, ::hstrerror(h_errno));
             this->send_fail_message(0x04);  // Host unreachable
             return;
         }
@@ -674,7 +684,7 @@ void Session::read_address()
         char address_string[INET6_ADDRSTRLEN];
         const char* res = ::inet_ntop(AF_INET6, &m_ipv6_address, address_string, INET6_ADDRSTRLEN);
         assert(res == address_string);
-        logger()->debug("Got IPv6 address {0}, port {1}", address_string, m_port);
+        logger()->info("Got IPv6 address {0}, port {1}", address_string, m_port);
 #endif
         this->consume_bytes_from_read_buffer(18);
         this->connect_ipv6_destination();

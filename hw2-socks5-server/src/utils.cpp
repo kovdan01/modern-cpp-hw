@@ -29,6 +29,8 @@ std::shared_ptr<spdlog::logger> logger()
         {
 #ifndef NDEBUG
             spdlog::set_level(spdlog::level::debug);
+#else
+            spdlog::set_level(spdlog::level::info);
 #endif
             logger = spdlog::stdout_logger_mt("console");
             spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [tid %t] [%l] %v");
